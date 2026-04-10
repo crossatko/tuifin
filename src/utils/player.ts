@@ -70,7 +70,7 @@ export function startMpv(
     args.push(`--start=${startPosition}`)
   }
 
-  debug("mpv", `Spawning mpv with playlist`, { ipcSocket, startIndex })
+  debug("mpv", `Spawning mpv with args`, { args: args.join(" ") })
 
   const proc = Bun.spawn(args, {
     stdin: null,
@@ -86,8 +86,8 @@ export function startMpv(
       if (text.trim()) debug("mpv", `${label}: ${text.trim()}`)
     } catch {}
   }
-  collectOutput(proc.stdout, "stdout")
-  collectOutput(proc.stderr, "stderr")
+  const stdoutPromise = collectOutput(proc.stdout, "stdout")
+  const stderrPromise = collectOutput(proc.stderr, "stderr")
 
   // Track progress for each episode
   const episodeProgress = new Map<string, number>()
@@ -161,6 +161,8 @@ export function startMpv(
 
   const wait = async (): Promise<PlaybackResult> => {
     const exitCode = await proc.exited
+    await stdoutPromise
+    await stderrPromise
     debug("mpv", `Process exited with code ${exitCode}`)
 
     if (pollTimer) {
