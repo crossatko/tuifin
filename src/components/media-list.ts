@@ -180,16 +180,21 @@ export class MediaList {
       const sel = this.select as any
       const maxScroll = Math.max(0, this.items.length - (sel.maxVisibleItems ?? 1))
       
+      let didScroll = false
       if (event.scroll.direction === "up" && sel.scrollOffset > 0) {
         sel.scrollOffset--
-        sel.requestRender()
+        didScroll = true
       } else if (event.scroll.direction === "down" && sel.scrollOffset < maxScroll) {
         sel.scrollOffset++
-        sel.requestRender()
+        didScroll = true
       }
 
+      if (!didScroll) return // Nothing to scroll, don't touch selection
+
+      sel.requestRender()
+
       // Update highlight to item under cursor without scrolling viewport
-      const idx = this.getItemIndexAtY(event.x !== undefined ? event.y : 0)
+      const idx = this.getItemIndexAtY(event.y)
       if (idx !== null) {
         const scrollOff = sel.scrollOffset
         this.select.setSelectedIndex(idx)
