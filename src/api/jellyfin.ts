@@ -54,6 +54,10 @@ export interface JellyfinItemsResponse {
 
 export class JellyfinClient {
   private config: JellyfinConfig
+  /** In-memory cache: path → { data, timestamp } */
+  private cache = new Map<string, { data: any; timestamp: number }>()
+  /** Max cache age in ms before background revalidation (30 seconds) */
+  private readonly CACHE_TTL = 30_000
 
   constructor(config: JellyfinConfig) {
     this.config = config
@@ -104,6 +108,67 @@ export class JellyfinClient {
     return res.json() as Promise<T>
   }
 
+  /**
+   * Stale-while-revalidate request.
+   * Returns cached data immediately if available, then revalidates in background.
+   * Calls onUpdate with fresh data if it differs from cache.
+   */
+  private async cachedRequest<T>(
+    path: string,
+    onUpdate?: (data: T) => void,
+  ): Promise<T> {
+    const cached = this.cache.get(path)
+    const now = Date.now()
+
+    if (cached) {
+      debug("api", `Cache hit: ${path} (age: ${now - cached.timestamp}ms)`)
+
+      // Revalidate in background if stale
+      if (now - cached.timestamp > this.CACHE_TTL) {
+        debug("api", `Revalidating: ${path}`)
+        this.request<T>(path)
+          .then((freshData) => {
+            const freshJson = JSON.stringify(freshData)
+            const cachedJson = JSON.stringify(cached.data)
+            this.cache.set(path, { data: freshData, timestamp: Date.now() })
+            if (freshJson !== cachedJson) {
+              debug("api", `Cache updated (data changed): ${path}`)
+              onUpdate?.(freshData)
+            } else {
+              debug("api", `Cache validated (no change): ${path}`)
+            }
+          })
+          .catch((err) => {
+            debug("api", `Revalidation failed: ${path}`, { error: String(err) })
+          })
+      }
+
+      return cached.data as T
+    }
+
+    // No cache — fetch and store
+    debug("api", `Cache miss: ${path}`)
+    const data = await this.request<T>(path)
+    this.cache.set(path, { data, timestamp: now })
+    return data
+  }
+
+  /** Clear all cached data */
+  clearCache() {
+    this.cache.clear()
+    debug("api", "Cache cleared")
+  }
+
+  /** Invalidate cache entries whose path starts with the given prefix */
+  private invalidateCachePrefix(prefix: string) {
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) {
+        this.cache.delete(key)
+        debug("api", `Cache invalidated: ${key}`)
+      }
+    }
+  }
+
   async authenticate(username: string, password: string): Promise<AuthResult> {
     debug("api", `Authenticating as "${username}" to ${this.config.serverUrl}`)
     const data = await this.request<{
@@ -126,9 +191,10 @@ export class JellyfinClient {
     }
   }
 
-  async getLibraries(): Promise<JellyfinItem[]> {
-    const data = await this.request<JellyfinItemsResponse>(
-      `/Users/${this.config.userId}/Items?IncludeItemTypes=CollectionFolder`
+  async getLibraries(onUpdate?: (items: JellyfinItem[]) => void): Promise<JellyfinItem[]> {
+    const data = await this.cachedRequest<JellyfinItemsResponse>(
+      `/Users/${this.config.userId}/Items?IncludeItemTypes=CollectionFolder`,
+      onUpdate ? (d) => onUpdate(d.Items) : undefined,
     )
     return data.Items
   }
@@ -140,7 +206,7 @@ export class JellyfinClient {
     sortOrder?: "Ascending" | "Descending"
     includeItemTypes?: string
     fields?: string
-  }): Promise<JellyfinItemsResponse> {
+  }, onUpdate?: (data: JellyfinItemsResponse) => void): Promise<JellyfinItemsResponse> {
     const params = new URLSearchParams()
     params.set("ParentId", parentId)
     params.set("Fields", options?.fields ?? "Overview,ImageTags,UserData,MediaSources,CommunityRating,OfficialRating,ProductionYear,RunTimeTicks")
@@ -150,41 +216,47 @@ export class JellyfinClient {
     if (options?.sortOrder) params.set("SortOrder", options.sortOrder)
     if (options?.includeItemTypes) params.set("IncludeItemTypes", options.includeItemTypes)
 
-    return this.request<JellyfinItemsResponse>(
-      `/Users/${this.config.userId}/Items?${params}`
+    return this.cachedRequest<JellyfinItemsResponse>(
+      `/Users/${this.config.userId}/Items?${params}`,
+      onUpdate,
     )
   }
 
-  async getResumeItems(limit = 10): Promise<JellyfinItem[]> {
-    const data = await this.request<JellyfinItemsResponse>(
-      `/Users/${this.config.userId}/Items/Resume?Limit=${limit}&Fields=Overview,ImageTags,UserData,MediaSources,RunTimeTicks&MediaTypes=Video`
-    )
-    return data.Items
-  }
-
-  async getNextUp(limit = 10): Promise<JellyfinItem[]> {
-    const data = await this.request<JellyfinItemsResponse>(
-      `/Shows/NextUp?UserId=${this.config.userId}&Limit=${limit}&Fields=Overview,ImageTags,UserData,MediaSources,RunTimeTicks`
+  async getResumeItems(limit = 10, onUpdate?: (items: JellyfinItem[]) => void): Promise<JellyfinItem[]> {
+    const data = await this.cachedRequest<JellyfinItemsResponse>(
+      `/Users/${this.config.userId}/Items/Resume?Limit=${limit}&Fields=Overview,ImageTags,UserData,MediaSources,RunTimeTicks&MediaTypes=Video`,
+      onUpdate ? (d) => onUpdate(d.Items) : undefined,
     )
     return data.Items
   }
 
-  async getItem(itemId: string): Promise<JellyfinItem> {
-    return this.request<JellyfinItem>(
-      `/Users/${this.config.userId}/Items/${itemId}?Fields=Overview,ImageTags,UserData,MediaSources,CommunityRating,OfficialRating,ProductionYear,RunTimeTicks`
-    )
-  }
-
-  async getSeasons(seriesId: string): Promise<JellyfinItem[]> {
-    const data = await this.request<JellyfinItemsResponse>(
-      `/Shows/${seriesId}/Seasons?UserId=${this.config.userId}&Fields=Overview,ImageTags,UserData`
+  async getNextUp(limit = 10, onUpdate?: (items: JellyfinItem[]) => void): Promise<JellyfinItem[]> {
+    const data = await this.cachedRequest<JellyfinItemsResponse>(
+      `/Shows/NextUp?UserId=${this.config.userId}&Limit=${limit}&Fields=Overview,ImageTags,UserData,MediaSources,RunTimeTicks`,
+      onUpdate ? (d) => onUpdate(d.Items) : undefined,
     )
     return data.Items
   }
 
-  async getEpisodes(seriesId: string, seasonId: string): Promise<JellyfinItem[]> {
-    const data = await this.request<JellyfinItemsResponse>(
-      `/Shows/${seriesId}/Episodes?SeasonId=${seasonId}&UserId=${this.config.userId}&Fields=Overview,ImageTags,UserData,MediaSources,RunTimeTicks`
+  async getItem(itemId: string, onUpdate?: (item: JellyfinItem) => void): Promise<JellyfinItem> {
+    return this.cachedRequest<JellyfinItem>(
+      `/Users/${this.config.userId}/Items/${itemId}?Fields=Overview,ImageTags,UserData,MediaSources,CommunityRating,OfficialRating,ProductionYear,RunTimeTicks`,
+      onUpdate,
+    )
+  }
+
+  async getSeasons(seriesId: string, onUpdate?: (items: JellyfinItem[]) => void): Promise<JellyfinItem[]> {
+    const data = await this.cachedRequest<JellyfinItemsResponse>(
+      `/Shows/${seriesId}/Seasons?UserId=${this.config.userId}&Fields=Overview,ImageTags,UserData`,
+      onUpdate ? (d) => onUpdate(d.Items) : undefined,
+    )
+    return data.Items
+  }
+
+  async getEpisodes(seriesId: string, seasonId: string, onUpdate?: (items: JellyfinItem[]) => void): Promise<JellyfinItem[]> {
+    const data = await this.cachedRequest<JellyfinItemsResponse>(
+      `/Shows/${seriesId}/Episodes?SeasonId=${seasonId}&UserId=${this.config.userId}&Fields=Overview,ImageTags,UserData,MediaSources,RunTimeTicks`,
+      onUpdate ? (d) => onUpdate(d.Items) : undefined,
     )
     return data.Items
   }
@@ -205,6 +277,9 @@ export class JellyfinClient {
     await this.request(`/Users/${this.config.userId}/PlayedItems/${itemId}`, {
       method: "POST",
     })
+    // Invalidate caches that might show play state
+    this.invalidateCachePrefix(`/Users/${this.config.userId}/Items`)
+    this.invalidateCachePrefix(`/Shows/NextUp`)
   }
 
   async reportPlaybackProgress(itemId: string, positionTicks: number): Promise<void> {
@@ -226,6 +301,9 @@ export class JellyfinClient {
         PositionTicks: positionTicks,
       }),
     })
+    // Invalidate caches that show play state/resume
+    this.invalidateCachePrefix(`/Users/${this.config.userId}/Items`)
+    this.invalidateCachePrefix(`/Shows/NextUp`)
   }
 
   /**
