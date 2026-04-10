@@ -3,6 +3,7 @@
 import { debug } from "../utils/debug"
 import { JellyfinClient, type JellyfinItem } from "../api/jellyfin"
 import type { PlaybackStatusBar } from "../components/statusbar"
+import { writeFileSync } from "fs"
 
 export interface PlaybackResult {
   /** Progress for each episode that was played: itemId -> positionTicks */
@@ -44,7 +45,7 @@ export function startMpv(
     playlistLines.push(`#EXTINF:-1,${title}`)
     playlistLines.push(client.getStreamUrl(ep.Id))
   }
-  Bun.write(playlistPath, playlistLines.join("\n"))
+  writeFileSync(playlistPath, playlistLines.join("\n"))
 
   debug("mpv", `Generated playlist with ${episodes.length} episodes (starting at ${startIndex})`, { playlistPath })
 
@@ -162,7 +163,8 @@ export function startMpv(
   }
 
   const wait = async (): Promise<PlaybackResult> => {
-    await proc.exited
+    const exitCode = await proc.exited
+    debug("mpv", `Process exited with code ${exitCode}`)
 
     if (pollTimer) {
       clearInterval(pollTimer)
