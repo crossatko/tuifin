@@ -21,6 +21,21 @@
 
 ## How It Works
 
+### Throttling Scroll Events
+Some terminals (like Ghostty) fire 3+ scroll events per physical wheel tick. We throttle these:
+
+```typescript
+const now = Date.now()
+if (now - this.lastScrollTime < 50) return  // Ignore rapid duplicates
+this.lastScrollTime = now
+```
+
+**Why throttle, not debounce?**
+- **Debounce**: Waits for events to stop, then fires → delays all scrolling
+- **Throttle**: Processes first event, ignores rapid duplicates → immediate response
+
+Result: Smooth 1:1 scrolling (one physical tick = one scroll action)
+
 ### Auto-Focus Pattern
 All interactive components auto-focus when the mouse enters their area:
 - CardRow: `onMouseMove` on container calls `this.focus()` + `onFocus()` callback
