@@ -79,7 +79,6 @@ export class CardRow {
       flexDirection: "row",
       gap: 1,
       overflow: "hidden",
-      focusable: true,
       onMouseMove: (event) => {
         // Auto-focus row when mouse enters
         if (!this.focused) {
