@@ -62,11 +62,16 @@ export class DetailScreen {
       paddingY: 1,
       gap: 2,
     })
-    header.add(new TextRenderable(renderer, {
+    const backBtn = new BoxRenderable(renderer, {
+      id: "detail-back-btn",
+      onMouseDown: () => this.onAction({ type: "back" }),
+    })
+    backBtn.add(new TextRenderable(renderer, {
       id: "detail-back",
       content: "← ",
       fg: theme.text.muted,
     }))
+    header.add(backBtn)
     header.add(new TextRenderable(renderer, {
       id: "detail-header-title",
       content: item.Name,
@@ -100,6 +105,8 @@ export class DetailScreen {
     this.keyHandler = (key: KeyEvent) => {
       if (!this.mediaList && (key.name === "escape" || key.name === "backspace")) {
         this.onAction({ type: "back" })
+      } else if (key.name === "r") {
+        this.refresh()
       }
     }
     renderer.keyInput.on("keypress", this.keyHandler)
@@ -184,6 +191,30 @@ export class DetailScreen {
 
   getRenderable(): BoxRenderable {
     return this.container
+  }
+
+  /** Refresh: reload detail data */
+  async refresh() {
+    debug("detail", "Refreshing detail...")
+    this.client.clearCache()
+    if (this.mediaList) {
+      this.mediaList.destroy()
+      this.mediaList = null
+    }
+    try { this.container.remove("detail-content") } catch {}
+    
+    const loadingBox = new BoxRenderable(this.renderer, {
+      id: "detail-loading-box",
+      flexGrow: 1,
+      paddingX: 2,
+    })
+    loadingBox.add(new TextRenderable(this.renderer, {
+      id: "detail-loading",
+      content: strings.detail.loading,
+      fg: theme.status.success,
+    }))
+    this.container.add(loadingBox)
+    await this.loadChildren(loadingBox)
   }
 
   destroy() {

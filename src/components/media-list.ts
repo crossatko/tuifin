@@ -33,7 +33,8 @@ export interface MediaListOptions {
 }
 
 const PREVIEW_WIDTH = 32
-const POSTER_HEIGHT = 18
+const POSTER_HEIGHT = 18  // For portrait posters (series, seasons, movies)
+const EPISODE_THUMBNAIL_HEIGHT = 7  // For 16:9 episode thumbnails
 const MIN_WIDTH_FOR_PREVIEW = 80
 
 export class MediaList {
@@ -44,6 +45,7 @@ export class MediaList {
   private previewImageCleanup: (() => void) | null = null
   private previewGeneration = 0
   private previewDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  private destroyed = false
   private searchBar: BoxRenderable | null = null
   private searchInput: InputRenderable | null = null
   private searching = false
@@ -55,6 +57,8 @@ export class MediaList {
   private onBack: () => void
   private keyHandler: (key: KeyEvent) => void
   private showPreview: boolean
+  /** Throttle scroll events - some terminals fire multiple events per tick */
+  private lastScrollTime = 0
 
   constructor(renderer: RenderContext, options: MediaListOptions) {
     this.renderer = renderer
@@ -143,6 +147,73 @@ export class MediaList {
       const item = this.items[index]
       if (item && this.showPreview) this.schedulePreviewUpdate(item)
     })
+
+    // Mouse handlers directly on SelectRenderable
+    this.select.onMouseMove = (event) => {
+      try {
+        // Auto-focus
+        if (!this.select!.focused) {
+          this.select!.focus()
+        }
+        // Highlight item under cursor WITHOUT scrolling the viewport
+        const idx = this.getItemIndexAtY(event.y)
+        if (idx !== null && idx !== this.select!.getSelectedIndex()) {
+          // Save scroll position, set index, restore scroll position
+          const scrollOff = (this.select as any).scrollOffset
+          this.select!.setSelectedIndex(idx)
+          ;(this.select as any).scrollOffset = scrollOff
+        }
+      } catch (err) {
+        debug("media-list", `onMouseMove ERROR: ${err}`)
+      }
+    }
+
+    this.select.onMouseScroll = (event) => {
+      if (!event.scroll || !this.select) return
+
+      // Throttle
+      const now = Date.now()
+      if (now - this.lastScrollTime < 50) return
+      this.lastScrollTime = now
+
+      // Manually scroll the viewport without changing selection
+      const sel = this.select as any
+      const maxScroll = Math.max(0, this.items.length - (sel.maxVisibleItems ?? 1))
+      
+      let didScroll = false
+      if (event.scroll.direction === "up" && sel.scrollOffset > 0) {
+        sel.scrollOffset--
+        didScroll = true
+      } else if (event.scroll.direction === "down" && sel.scrollOffset < maxScroll) {
+        sel.scrollOffset++
+        didScroll = true
+      }
+
+      if (!didScroll) return // Nothing to scroll, don't touch selection
+
+      sel.requestRender()
+
+      // Update highlight to item under cursor without scrolling viewport
+      const idx = this.getItemIndexAtY(event.y)
+      if (idx !== null) {
+        const scrollOff = sel.scrollOffset
+        this.select.setSelectedIndex(idx)
+        sel.scrollOffset = scrollOff
+      }
+    }
+
+    this.select.onMouseDown = (event) => {
+      // Left-click = open item under cursor
+      if (event.button !== 0) return
+      const idx = this.getItemIndexAtY(event.y)
+      if (idx !== null) {
+        const scrollOff = (this.select as any).scrollOffset
+        this.select!.setSelectedIndex(idx)
+        ;(this.select as any).scrollOffset = scrollOff
+        const item = this.items[idx]
+        if (item) this.onSelect(item)
+      }
+    }
 
     listPanel.add(this.select)
     row.add(listPanel)
@@ -271,6 +342,7 @@ export class MediaList {
   // --- Preview ---
 
   private schedulePreviewUpdate(item: JellyfinItem) {
+    if (this.destroyed) return
     if (this.previewDebounceTimer) clearTimeout(this.previewDebounceTimer)
     this.previewDebounceTimer = setTimeout(() => {
       this.previewDebounceTimer = null
@@ -279,7 +351,7 @@ export class MediaList {
   }
 
   private async updatePreview(item: JellyfinItem) {
-    if (!this.previewBox) return
+    if (this.destroyed || !this.previewBox) return
     const generation = ++this.previewGeneration
 
     if (this.previewImageCleanup) {
@@ -294,6 +366,9 @@ export class MediaList {
     const contentWidth = PREVIEW_WIDTH - 4
     const posterWidth = contentWidth + 2
 
+    // Use 16:9 aspect for episode thumbnails, portrait for others
+    const imageHeight = item.Type === "Episode" ? EPISODE_THUMBNAIL_HEIGHT : POSTER_HEIGHT
+
     // Poster — use series poster for episodes if no own image
     const imageItemId = item.ImageTags?.Primary ? item.Id
       : (item.SeriesId ?? null)
@@ -305,7 +380,7 @@ export class MediaList {
           id: "mp-poster",
           url: imageUrl,
           width: posterWidth,
-          height: POSTER_HEIGHT,
+          height: imageHeight,
           placementOffset: { x: 1, y: 1 },
         })
         if (generation !== this.previewGeneration) { cleanup(); return }
@@ -370,13 +445,41 @@ export class MediaList {
     }
   }
 
+  /** Map a screen Y coordinate to a list item index, accounting for SelectRenderable's scroll offset */
+  private getItemIndexAtY(screenY: number): number | null {
+    if (!this.select) return null
+    const relativeY = screenY - this.select.y
+    if (relativeY < 0) return null
+    
+    // SelectRenderable uses linesPerItem=2 (name + description) by default
+    const linesPerItem = 2
+    const visibleSlot = Math.floor(relativeY / linesPerItem)
+    const scrollOff = (this.select as any).scrollOffset ?? 0
+    const itemIndex = scrollOff + visibleSlot
+    
+    if (itemIndex >= 0 && itemIndex < this.items.length) {
+      return itemIndex
+    }
+    return null
+  }
+
   getRenderable(): BoxRenderable {
     return this.container
   }
 
   destroy() {
+    this.destroyed = true
     if (this.previewDebounceTimer) clearTimeout(this.previewDebounceTimer)
-    if (this.previewImageCleanup) this.previewImageCleanup()
+    // Increment generation to poison any in-flight updatePreview — when the async
+    // createImageRenderable resolves it will see the mismatch and call cleanup()
+    // itself instead of storing the image on a dead object.
+    this.previewGeneration++
+    if (this.previewImageCleanup) {
+      this.previewImageCleanup()
+      this.previewImageCleanup = null
+    }
+    // Blur the select to stop its internal key handler from firing events
+    this.select?.blur()
     this.renderer.keyInput.off("keypress", this.keyHandler)
     this.container.destroy()
   }

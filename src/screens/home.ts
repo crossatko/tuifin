@@ -17,11 +17,13 @@ export type HomeAction =
   | { type: "open-item"; item: JellyfinItem }
   | { type: "open-library"; item: JellyfinItem }
   | { type: "play"; item: JellyfinItem }
+  | { type: "logout" }
 
 export class HomeScreen {
   private renderer: RenderContext
   private client: JellyfinClient
   private container: BoxRenderable
+  private contentBox: BoxRenderable | null = null
   private onAction: (action: HomeAction) => void
   private keyHandler: (key: KeyEvent) => void
 
@@ -78,6 +80,7 @@ export class HomeScreen {
       gap: 1,
       overflow: "hidden",
     })
+    this.contentBox = content
     this.container.add(content)
 
     // Hint bar
@@ -99,6 +102,13 @@ export class HomeScreen {
         }
       } else if (key.name === "up" || key.name === "k") {
         this.focusSection(this.activeSectionIndex - 1)
+      } else if (key.name === "q" && key.shift) {
+        // Shift+Q for logout
+        debug("home", "Logout requested")
+        this.onAction({ type: "logout" })
+      } else if (key.name === "r") {
+        // Refresh data
+        this.refresh()
       }
     }
     renderer.keyInput.on("keypress", this.keyHandler)
@@ -118,9 +128,18 @@ export class HomeScreen {
 
     try {
       const [resumeItems, nextUpItems, libraries] = await Promise.all([
-        this.client.getResumeItems(10).catch(() => []),
-        this.client.getNextUp(10).catch(() => []),
-        this.client.getLibraries().catch(() => []),
+        this.client.getResumeItems(10).catch((err) => {
+          debug("home", "Failed to fetch resume items", { error: String(err) })
+          return []
+        }),
+        this.client.getNextUp(10).catch((err) => {
+          debug("home", "Failed to fetch next up", { error: String(err) })
+          return []
+        }),
+        this.client.getLibraries().catch((err) => {
+          debug("home", "Failed to fetch libraries", { error: String(err) })
+          throw err // Libraries are critical, propagate error
+        }),
       ])
 
       debug("home", "Data loaded", {
@@ -168,12 +187,23 @@ export class HomeScreen {
       content.remove("home-loading")
       loadingText.destroy()
 
+      const errorMsg = err instanceof Error ? err.message : "Unknown error"
       const errorText = new TextRenderable(this.renderer, {
         id: "home-error",
-        content: strings.home.loadError(err instanceof Error ? err.message : "Unknown error"),
+        content: strings.home.loadError(errorMsg),
         fg: theme.status.error,
       })
       content.add(errorText)
+
+      // Add retry hint
+      const retryHint = new TextRenderable(this.renderer, {
+        id: "home-retry-hint",
+        content: "Press Shift+Q to logout and try again",
+        fg: theme.text.muted,
+        attributes: TextAttributes.DIM,
+        marginTop: 1,
+      })
+      content.add(retryHint)
     }
   }
 
@@ -230,6 +260,14 @@ export class HomeScreen {
             this.onAction({ type: "open-item", item })
           }
         }
+      },
+      onFocus: () => {
+        // Blur all other rows when this one is focused
+        this.sections.forEach((s) => {
+          if (s.cardRow !== cardRow) {
+            s.cardRow.blur()
+          }
+        })
       },
     })
 
@@ -291,6 +329,30 @@ export class HomeScreen {
 
   getRenderable(): BoxRenderable {
     return this.container
+  }
+
+  /** Full refresh: destroy all sections and reload data */
+  async refresh() {
+    if (!this.contentBox) return
+    debug("home", "Refreshing home screen...")
+
+    // Destroy existing sections
+    for (const section of this.sections) {
+      section.cardRow.destroy()
+    }
+    this.sections = []
+    this.activeSectionIndex = 0
+
+    // Remove all children from content box
+    try { this.contentBox.remove("section-continue") } catch {}
+    try { this.contentBox.remove("section-nextup") } catch {}
+    try { this.contentBox.remove("section-libraries") } catch {}
+
+    // Clear cache so we get fresh data
+    this.client.clearCache()
+
+    // Reload
+    await this.loadData(this.contentBox)
   }
 
   destroy() {

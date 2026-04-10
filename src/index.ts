@@ -71,7 +71,7 @@ function showHome() {
 
   const client = jellyfinClient
   const home = new HomeScreen(renderer, client, (action) => {
-    debug("main", "Home action", { type: action.type, name: action.item.Name })
+    debug("main", "Home action", { type: action.type, name: action.type !== "logout" ? action.item?.Name : undefined })
     switch (action.type) {
       case "open-item":
         showDetail(client, action.item)
@@ -81,6 +81,9 @@ function showHome() {
         break
       case "play":
         handlePlay(client, action.item)
+        break
+      case "logout":
+        handleLogout()
         break
     }
   })
@@ -98,6 +101,8 @@ function showLibrary(client: JellyfinClient, library: JellyfinItem) {
     debug("main", "Library action", { type: action.type })
     switch (action.type) {
       case "open-item":
+        // Push library restoration so back-from-detail returns here
+        navStack.push(() => showLibrary(client, library))
         showDetail(client, action.item)
         break
       case "back":
@@ -112,20 +117,16 @@ function showLibrary(client: JellyfinClient, library: JellyfinItem) {
 function showDetail(client: JellyfinClient, item: JellyfinItem) {
   debug("main", "Showing detail", { name: item.Name, type: item.Type })
 
-  // Push current screen restore onto nav stack
-  // We can't easily restore the previous screen, so we push a factory
-  navStack.push(() => {
-    // Go back means pop this and show whatever was before
-    // For simplicity, if stack is empty go home
-    if (navStack.length === 0) {
-      showHome()
-    }
-  })
-
+  // Don't push to navStack here — the caller (showLibrary / showHome action handler)
+  // already has the right "go back" entry on the stack.
+  // When navigating deeper (series → season), we push a factory to re-open THIS
+  // item so the user can go back to it from the child screen.
   const screen = new DetailScreen(renderer, client, item, (action) => {
     debug("main", "Detail action", { type: action.type })
     switch (action.type) {
       case "open-item":
+        // Push factory so back-from-child returns here
+        navStack.push(() => showDetail(client, item))
         showDetail(client, action.item)
         break
       case "play":
@@ -151,27 +152,64 @@ function goBack() {
   }
 }
 
+async function handleLogout() {
+  debug("main", "Logging out...")
+  await clearSession()
+  jellyfinClient = null
+  showLogin()
+}
+
 async function handlePlay(client: JellyfinClient, item: JellyfinItem) {
   debug("main", "Starting playback", { name: item.Name, type: item.Type })
+
+  // Fetch playlist: for episodes, get full series; for movies, just the single item
+  let episodes: JellyfinItem[]
+  let startIndex = 0
+
+  if (item.Type === "Episode") {
+    debug("main", "Fetching series playlist...")
+    const playlist = await client.getSeriesPlaylist(item)
+    episodes = playlist.episodes
+    startIndex = playlist.startIndex
+    debug("main", `Playlist ready: ${episodes.length} episodes, starting at ${startIndex}`)
+  } else {
+    // For movies, single-item playlist
+    episodes = [item]
+    startIndex = 0
+  }
 
   // Add status bar to current screen's renderable
   const title = item.SeriesName
     ? `${item.SeriesName} — ${item.Name}`
     : item.Name
   const statusBar = new PlaybackStatusBar(renderer, title)
-  renderer.root.add(statusBar.getRenderable())
+  const statusBarRenderable = statusBar.getRenderable()
+  renderer.root.add(statusBarRenderable)
 
-  const session = startMpv(client, item, statusBar)
+  const session = startMpv(client, episodes, startIndex, statusBar, (completedEpisode) => {
+    // Live update: episode completed during playback
+    debug("main", `Episode completed during playback: "${completedEpisode.Name}"`)
+    // Invalidate cache so next screen load gets fresh data
+    client.clearCache()
+    // If home screen is active, refresh it
+    if (currentScreen instanceof HomeScreen) {
+      currentScreen.refresh()
+    }
+  })
   activeSession = session
 
   try {
     const result = await session.wait()
-    debug("main", "Playback finished", result)
-    await reportPlayback(client, item, result)
+    debug("main", "Playback finished", {
+      watchedCount: result.episodeProgress.size,
+      completedCount: result.completedEpisodes.size,
+    })
+    await reportPlayback(client, result)
   } catch (err) {
     debug("main", "Playback error", { error: String(err) })
   } finally {
     activeSession = null
+    renderer.root.remove(statusBarRenderable.id)
     statusBar.destroy()
   }
 }
@@ -181,12 +219,15 @@ let activeSession: ReturnType<typeof startMpv> | null = null
 // Global quit handler
 renderer.keyInput.on("keypress", (key) => {
   if (key.name !== "q") return
+  if (key.shift) return // Shift+Q is for logout, not quit
   if (activeSession) {
     debug("main", "Stopping mpv via 'q'")
     activeSession.stop()
   } else if (!(currentScreen instanceof LoginScreen)) {
     debug("main", "Quit requested via 'q' key")
+    cleanupAllImages()
     renderer.destroy()
+    process.exit(0)
   }
 })
 

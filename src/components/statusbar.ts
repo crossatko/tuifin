@@ -15,6 +15,7 @@ export class PlaybackStatusBar {
   private titleText: TextRenderable
   private progressText: TextRenderable
   private timeText: TextRenderable
+  private isPaused = false
 
   constructor(renderer: RenderContext, title: string) {
     this.renderer = renderer
@@ -63,6 +64,21 @@ export class PlaybackStatusBar {
       this.progressText.content = `${bar} ${pos} / ${dur}`
     } else {
       this.progressText.content = formatTime(positionSecs)
+    }
+  }
+
+  updateTitle(title: string) {
+    const icon = this.isPaused ? "⏸" : "▶"
+    this.titleText.content = `${icon}  ${title}`
+  }
+
+  updatePauseState(paused: boolean) {
+    if (this.isPaused !== paused) {
+      this.isPaused = paused
+      const icon = paused ? "⏸" : "▶"
+      // Update icon while preserving the title text
+      const currentTitle = this.titleText.content.replace(/^[▶⏸]\s+/, "")
+      this.titleText.content = `${icon}  ${currentTitle}`
     }
   }
 

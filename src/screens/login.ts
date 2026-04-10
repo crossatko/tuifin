@@ -65,6 +65,7 @@ export class LoginScreen {
       id: "login-subtitle",
       content: strings.login.subtitle,
       attributes: TextAttributes.DIM,
+      marginTop: 2,
     })
 
     // Form box
@@ -178,6 +179,12 @@ export class LoginScreen {
       flexDirection: "row",
       gap: 1,
       alignItems: "center",
+      onMouseDown: (event) => {
+        // Focus corresponding input when clicking anywhere in the row
+        const inputIndex = id.includes("server") ? 0 : id.includes("user") ? 1 : 2
+        this.focusIndex = inputIndex
+        this.focusCurrentInput()
+      },
     })
     const labelText = new TextRenderable(renderer, {
       id: `${id}-label`,
@@ -266,7 +273,18 @@ export class LoginScreen {
       this.submitting = false
       const msg = err instanceof Error ? err.message : "Connection failed"
       debug("login", "Authentication failed", { error: msg })
-      this.statusText.content = strings.login.error.connectionFailed(msg)
+
+      // Parse error type for better user feedback
+      if (msg.includes("401") || msg.includes("Unauthorized") || msg.includes("Invalid")) {
+        this.statusText.content = strings.login.error.invalidCredentials
+      } else if (msg.includes("ENOTFOUND") || msg.includes("ECONNREFUSED") || msg.includes("404")) {
+        this.statusText.content = strings.login.error.serverNotFound
+      } else if (msg.includes("network") || msg.includes("timeout") || msg.includes("ETIMEDOUT")) {
+        this.statusText.content = strings.login.error.networkError
+      } else {
+        this.statusText.content = strings.login.error.connectionFailed(msg)
+      }
+      
       this.statusText.fg = theme.status.error
     }
   }

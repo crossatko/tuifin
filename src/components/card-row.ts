@@ -35,6 +35,8 @@ export interface CardRowOptions {
   /** Number of text rows below the image (default 3: title + subtitle + subtitle2) */
   textRows?: number
   onSelect?: (index: number) => void
+  /** Called when this row receives focus (keyboard or mouse) */
+  onFocus?: () => void
 }
 
 const DEFAULT_CARD_WIDTH = 18
@@ -51,17 +53,21 @@ export class CardRow {
   private imgHeight: number
   private textRows: number
   private onSelect?: (index: number) => void
+  private onFocus?: () => void
   private focused = false
   private keyHandler: ((key: KeyEvent) => void) | null = null
   private imageCleanups: (() => void)[] = []
   /** Map from card index → image handle for kitty show/hide */
   private imageHandles: Map<number, { showKitty: () => void; hideKitty: () => void }> = new Map()
+  /** Throttle scroll events - some terminals fire multiple events per tick */
+  private lastScrollTime = 0
 
   constructor(renderer: RenderContext, options: CardRowOptions) {
     this.renderer = renderer
     this.cards = options.cards
     this.cardWidth = options.cardWidth ?? DEFAULT_CARD_WIDTH
     this.onSelect = options.onSelect
+    this.onFocus = options.onFocus
 
     const imgWidth = this.cardWidth - 2
     this.imgHeight = options.cardHeight ?? DEFAULT_IMG_HEIGHT
@@ -69,11 +75,50 @@ export class CardRow {
 
     debug("card-row", `CardRow "${options.id}": ${options.cards.length} cards, cardW=${this.cardWidth}, imgH=${this.imgHeight}`)
 
-    this.container = new BoxRenderable(renderer, {
-      id: options.id,
+    this.container = new BoxRenderable(renderer, {      id: options.id,
       flexDirection: "row",
       gap: 1,
       overflow: "hidden",
+      onMouseMove: (event) => {
+        // Auto-focus row when mouse enters
+        if (!this.focused) {
+          this.focus()
+          this.onFocus?.()
+        }
+      },
+      onMouseScroll: (event) => {
+        if (!event.scroll) return
+        
+        // Throttle: some terminals fire 3+ events per physical wheel tick
+        const now = Date.now()
+        if (now - this.lastScrollTime < 50) return
+        this.lastScrollTime = now
+        
+        // Remember which visible slot is currently highlighted
+        const visibleSlot = this.selectedIndex - this.scrollOffset
+        
+        // Scroll
+        let didScroll = false
+        if (event.scroll.direction === "up" && this.scrollOffset > 0) {
+          this.scrollOffset--
+          didScroll = true
+        } else if (event.scroll.direction === "down") {
+          const maxOffset = Math.max(0, this.cards.length - this.getVisibleCount())
+          if (this.scrollOffset < maxOffset) {
+            this.scrollOffset++
+            didScroll = true
+          }
+        }
+        
+        if (didScroll) {
+          // Keep highlight at the same visible slot
+          const newIndex = this.scrollOffset + visibleSlot
+          if (newIndex >= 0 && newIndex < this.cards.length) {
+            this.selectedIndex = newIndex
+          }
+          this.updateVisuals()
+        }
+      },
     })
 
     for (let i = 0; i < this.cards.length; i++) {
@@ -96,6 +141,19 @@ export class CardRow {
       borderStyle: "rounded",
       borderColor: theme.border.muted,
       overflow: "hidden",
+      onMouseDown: (event) => {
+        // Click triggers selection
+        this.selectedIndex = index
+        this.updateVisuals()
+        this.onSelect?.(index)
+      },
+      onMouseMove: (event) => {
+        // Hover updates selected index (visual feedback)
+        if (this.selectedIndex !== index) {
+          this.selectedIndex = index
+          this.updateVisuals()
+        }
+      },
     })
 
     // Placeholder for image
@@ -295,6 +353,7 @@ export class CardRow {
   focus() {
     if (this.focused) return
     this.focused = true
+    this.onFocus?.()
     debug("card-row", `Focus on "${this.container.id}"`)
 
     this.keyHandler = (key: KeyEvent) => {

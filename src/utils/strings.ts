@@ -23,12 +23,15 @@ export const strings = {
     error: {
       serverRequired: "⚠ Server URL is required",
       usernameRequired: "⚠ Username is required",
+      invalidCredentials: "✗ Invalid username or password",
+      serverNotFound: "✗ Server not found. Check the URL and try again.",
+      networkError: "✗ Network error. Check your connection.",
       connectionFailed: (msg: string) => `✗ ${msg}`,
     },
   },
 
   home: {
-    hint: "  h/l: browse cards  |  j/k: switch section  |  Enter: select  |  q: quit",
+    hint: "  h/l: browse cards  |  j/k: switch section  |  Enter: select  |  Shift+Q: logout  |  q: quit",
     loading: "⏳ Loading...",
     loadError: (msg: string) => `✗ Failed to load: ${msg}`,
     sections: {
