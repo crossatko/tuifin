@@ -62,11 +62,16 @@ export class DetailScreen {
       paddingY: 1,
       gap: 2,
     })
-    header.add(new TextRenderable(renderer, {
+    const backBtn = new BoxRenderable(renderer, {
+      id: "detail-back-btn",
+      onMouseDown: () => this.onAction({ type: "back" }),
+    })
+    backBtn.add(new TextRenderable(renderer, {
       id: "detail-back",
       content: "← ",
       fg: theme.text.muted,
     }))
+    header.add(backBtn)
     header.add(new TextRenderable(renderer, {
       id: "detail-header-title",
       content: item.Name,

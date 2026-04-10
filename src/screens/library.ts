@@ -53,11 +53,16 @@ export class LibraryScreen {
       paddingY: 1,
       gap: 2,
     })
-    header.add(new TextRenderable(renderer, {
+    const backBtn = new BoxRenderable(renderer, {
+      id: "library-back-btn",
+      onMouseDown: () => this.onBack(),
+    })
+    backBtn.add(new TextRenderable(renderer, {
       id: "library-back",
       content: "← ",
       fg: theme.text.muted,
     }))
+    header.add(backBtn)
     header.add(new TextRenderable(renderer, {
       id: "library-title",
       content: library.Name,
