@@ -151,15 +151,11 @@ export class MediaList {
     // Mouse handlers directly on SelectRenderable
     this.select.onMouseMove = (event) => {
       try {
-        debug("media-list", `onMouseMove: y=${event.y}, selectY=${this.select!.y}`)
         // Auto-focus + highlight item under cursor
-        if (!this.select!.isFocused()) {
-          debug("media-list", `Focusing select...`)
+        if (!this.select!.focused) {
           this.select!.focus()
-          debug("media-list", `Focused.`)
         }
         const idx = this.getItemIndexAtY(event.y)
-        debug("media-list", `Hover index: ${idx}, current: ${this.select!.getSelectedIndex()}`)
         if (idx !== null && idx !== this.select!.getSelectedIndex()) {
           this.select!.setSelectedIndex(idx)
         }
@@ -169,7 +165,6 @@ export class MediaList {
     }
 
     this.select.onMouseScroll = (event) => {
-      debug("media-list", `onMouseScroll: dir=${event.scroll?.direction}`)
       if (!event.scroll) return
 
       // Throttle
@@ -429,26 +424,19 @@ export class MediaList {
   /** Map a screen Y coordinate to a list item index, accounting for SelectRenderable's scroll offset */
   private getItemIndexAtY(screenY: number): number | null {
     if (!this.select) return null
-    try {
-      const relativeY = screenY - this.select.y
-      if (relativeY < 0) return null
-      
-      // SelectRenderable uses linesPerItem=2 (name + description) by default
-      const linesPerItem = 2
-      const visibleSlot = Math.floor(relativeY / linesPerItem)
-      const scrollOff = (this.select as any).scrollOffset ?? 0
-      const itemIndex = scrollOff + visibleSlot
-      
-      debug("media-list", `getItemIndexAtY: screenY=${screenY}, selectY=${this.select.y}, relY=${relativeY}, slot=${visibleSlot}, scrollOff=${scrollOff}, idx=${itemIndex}`)
-      
-      if (itemIndex >= 0 && itemIndex < this.items.length) {
-        return itemIndex
-      }
-      return null
-    } catch (err) {
-      debug("media-list", `getItemIndexAtY error: ${err}`)
-      return null
+    const relativeY = screenY - this.select.y
+    if (relativeY < 0) return null
+    
+    // SelectRenderable uses linesPerItem=2 (name + description) by default
+    const linesPerItem = 2
+    const visibleSlot = Math.floor(relativeY / linesPerItem)
+    const scrollOff = (this.select as any).scrollOffset ?? 0
+    const itemIndex = scrollOff + visibleSlot
+    
+    if (itemIndex >= 0 && itemIndex < this.items.length) {
+      return itemIndex
     }
+    return null
   }
 
   getRenderable(): BoxRenderable {
