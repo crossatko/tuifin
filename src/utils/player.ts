@@ -73,8 +73,23 @@ export function startMpv(
   const proc = Bun.spawn(args, {
     stdin: null,
     stdout: null,
-    stderr: null,
+    stderr: "pipe",
   })
+
+  // Log mpv stderr for debugging
+  if (proc.stderr) {
+    const reader = proc.stderr.getReader()
+    ;(async () => {
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const text = new TextDecoder().decode(value)
+          debug("mpv", `stderr: ${text.trim()}`)
+        }
+      } catch {}
+    })()
+  }
 
   // Track progress for each episode
   const episodeProgress = new Map<string, number>()
