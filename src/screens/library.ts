@@ -55,7 +55,7 @@ export class LibraryScreen {
     })
     const backBtn = new BoxRenderable(renderer, {
       id: "library-back-btn",
-      onMouseDown: () => this.onBack(),
+      onMouseDown: () => this.onAction({ type: "back" }),
     })
     backBtn.add(new TextRenderable(renderer, {
       id: "library-back",
