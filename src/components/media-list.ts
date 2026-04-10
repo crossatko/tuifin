@@ -33,7 +33,8 @@ export interface MediaListOptions {
 }
 
 const PREVIEW_WIDTH = 32
-const POSTER_HEIGHT = 18
+const POSTER_HEIGHT = 18  // For portrait posters (series, seasons, movies)
+const EPISODE_THUMBNAIL_HEIGHT = 9  // For 16:9 episode thumbnails
 const MIN_WIDTH_FOR_PREVIEW = 80
 
 export class MediaList {
@@ -296,6 +297,9 @@ export class MediaList {
     const contentWidth = PREVIEW_WIDTH - 4
     const posterWidth = contentWidth + 2
 
+    // Use 16:9 aspect for episode thumbnails, portrait for others
+    const imageHeight = item.Type === "Episode" ? EPISODE_THUMBNAIL_HEIGHT : POSTER_HEIGHT
+
     // Poster — use series poster for episodes if no own image
     const imageItemId = item.ImageTags?.Primary ? item.Id
       : (item.SeriesId ?? null)
@@ -307,7 +311,7 @@ export class MediaList {
           id: "mp-poster",
           url: imageUrl,
           width: posterWidth,
-          height: POSTER_HEIGHT,
+          height: imageHeight,
           placementOffset: { x: 1, y: 1 },
         })
         if (generation !== this.previewGeneration) { cleanup(); return }
