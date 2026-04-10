@@ -34,7 +34,7 @@ export interface MediaListOptions {
 
 const PREVIEW_WIDTH = 32
 const POSTER_HEIGHT = 18  // For portrait posters (series, seasons, movies)
-const EPISODE_THUMBNAIL_HEIGHT = 9  // For 16:9 episode thumbnails
+const EPISODE_THUMBNAIL_HEIGHT = 7  // For 16:9 episode thumbnails
 const MIN_WIDTH_FOR_PREVIEW = 80
 
 export class MediaList {
