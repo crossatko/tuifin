@@ -48,6 +48,7 @@ export function startMpv(
   writeFileSync(playlistPath, playlistLines.join("\n"))
 
   debug("mpv", `Generated playlist with ${episodes.length} episodes (starting at ${startIndex})`, { playlistPath })
+  debug("mpv", `First playlist URL: ${playlistLines[2]}`) // Log first actual URL
 
   // Start at resume position of the starting episode
   const startEpisode = episodes[startIndex] ?? episodes[0]!
@@ -58,7 +59,7 @@ export function startMpv(
   const args = [
     "mpv",
     playlistPath,
-    "--no-terminal",
+    // "--no-terminal",  // Temporarily disabled to see errors
     "--force-window",
     "--x11-name=jellytui-mpv",
     "--wayland-app-id=jellytui-mpv",
