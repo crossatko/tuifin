@@ -24,10 +24,10 @@
 - [x] **Progress tracking:** Multi-episode watch progress and completion sync
 - [x] **Logout:** Shift+Q to logout and return to login screen
 - [x] **Error handling:** Better login errors, network failures, partial data loading
-- [x] **Mouse support (partial):**
-  - [x] CardRow: hover, click, horizontal scroll wheel
-  - [ ] SelectRenderable/MediaList: needs testing (should work via core component)
-  - [ ] Login inputs: needs testing (should work via core component)
+- [x] **Mouse support:**
+  - [x] CardRow: hover (auto-focus), click, horizontal scroll, exclusive focus
+  - [x] MediaList: hover (auto-focus), click, vertical scroll
+  - [x] Login: click-to-focus inputs
 
 ## Next Up
 - [ ] Test full flow: home → library → series → season → episode → play → mpv </> navigation

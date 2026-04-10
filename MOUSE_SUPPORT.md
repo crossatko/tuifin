@@ -3,10 +3,11 @@
 ## ✅ Fully Implemented
 
 ### CardRow (Home Screen Cards)
-✅ **Auto-focus on hover** - Moving mouse over any row auto-focuses it
-✅ **Hover highlight** - Moving mouse over cards updates selection highlight
+✅ **Auto-focus on hover** - Moving mouse over any row auto-focuses it and blurs others
+✅ **Hover highlight** - Moving mouse over cards updates selection highlight (only in focused row)
 ✅ **Click** - Clicking a card triggers the onSelect action  
 ✅ **Horizontal Scroll** - Mouse wheel up/down scrolls cards left/right
+✅ **Exclusive focus** - Only the focused row shows highlights; other rows are blurred
 
 ### SelectRenderable / MediaList (Library/Detail Screens)
 ✅ **Auto-focus on hover** - Moving mouse over list auto-focuses it
