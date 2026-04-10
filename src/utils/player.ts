@@ -28,6 +28,7 @@ export function startMpv(
   episodes: JellyfinItem[],
   startIndex: number,
   statusBar: PlaybackStatusBar,
+  onEpisodeComplete?: (episode: JellyfinItem) => void,
 ): PlaybackSession {
   if (episodes.length === 0) {
     throw new Error("No episodes to play")
@@ -125,6 +126,12 @@ export function startMpv(
             if (prevEpisode.RunTimeTicks && prevTicks / prevEpisode.RunTimeTicks > 0.9) {
               completedEpisodes.add(prevEpisode.Id)
               debug("mpv", `Episode ${currentPlaylistIndex} marked complete`)
+              
+              // Report to server immediately and notify callback
+              client.markPlayed(prevEpisode.Id).catch((err) => {
+                debug("mpv", `Failed to mark played: ${err}`)
+              })
+              onEpisodeComplete?.(prevEpisode)
             }
           }
 

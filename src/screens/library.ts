@@ -25,6 +25,8 @@ export class LibraryScreen {
   private keyHandler: (key: KeyEvent) => void
   private destroyed = false
   private loadGeneration = 0
+  private client: JellyfinClient
+  private libraryId: string
 
   constructor(
     renderer: RenderContext,
@@ -33,6 +35,8 @@ export class LibraryScreen {
     onAction: (action: LibraryAction) => void
   ) {
     this.renderer = renderer
+    this.client = client
+    this.libraryId = library.Id
     this.onAction = onAction
 
     debug("library", `LibraryScreen created for "${library.Name}"`, { id: library.Id })
@@ -96,6 +100,8 @@ export class LibraryScreen {
     this.keyHandler = (key: KeyEvent) => {
       if (!this.mediaList && (key.name === "escape" || key.name === "backspace")) {
         this.onAction({ type: "back" })
+      } else if (key.name === "r") {
+        this.refresh()
       }
     }
     renderer.keyInput.on("keypress", this.keyHandler)
@@ -183,6 +189,30 @@ export class LibraryScreen {
 
   getRenderable(): BoxRenderable {
     return this.container
+  }
+
+  /** Refresh: reload library items */
+  async refresh() {
+    debug("library", "Refreshing library...")
+    this.client.clearCache()
+    if (this.mediaList) {
+      this.mediaList.destroy()
+      this.mediaList = null
+    }
+    try { this.container.remove("library-medialist-box") } catch {}
+    
+    const loadingBox = new BoxRenderable(this.renderer, {
+      id: "library-loading-box",
+      flexGrow: 1,
+      paddingX: 2,
+    })
+    loadingBox.add(new TextRenderable(this.renderer, {
+      id: "library-loading",
+      content: strings.library.loading,
+      fg: theme.status.success,
+    }))
+    this.container.add(loadingBox)
+    await this.loadItems(this.client, this.libraryId, loadingBox)
   }
 
   destroy() {

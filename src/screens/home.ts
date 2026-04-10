@@ -23,6 +23,7 @@ export class HomeScreen {
   private renderer: RenderContext
   private client: JellyfinClient
   private container: BoxRenderable
+  private contentBox: BoxRenderable | null = null
   private onAction: (action: HomeAction) => void
   private keyHandler: (key: KeyEvent) => void
 
@@ -79,6 +80,7 @@ export class HomeScreen {
       gap: 1,
       overflow: "hidden",
     })
+    this.contentBox = content
     this.container.add(content)
 
     // Hint bar
@@ -104,6 +106,9 @@ export class HomeScreen {
         // Shift+Q for logout
         debug("home", "Logout requested")
         this.onAction({ type: "logout" })
+      } else if (key.name === "r") {
+        // Refresh data
+        this.refresh()
       }
     }
     renderer.keyInput.on("keypress", this.keyHandler)
@@ -324,6 +329,30 @@ export class HomeScreen {
 
   getRenderable(): BoxRenderable {
     return this.container
+  }
+
+  /** Full refresh: destroy all sections and reload data */
+  async refresh() {
+    if (!this.contentBox) return
+    debug("home", "Refreshing home screen...")
+
+    // Destroy existing sections
+    for (const section of this.sections) {
+      section.cardRow.destroy()
+    }
+    this.sections = []
+    this.activeSectionIndex = 0
+
+    // Remove all children from content box
+    try { this.contentBox.remove("section-continue") } catch {}
+    try { this.contentBox.remove("section-nextup") } catch {}
+    try { this.contentBox.remove("section-libraries") } catch {}
+
+    // Clear cache so we get fresh data
+    this.client.clearCache()
+
+    // Reload
+    await this.loadData(this.contentBox)
   }
 
   destroy() {

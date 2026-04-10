@@ -186,7 +186,16 @@ async function handlePlay(client: JellyfinClient, item: JellyfinItem) {
   const statusBarRenderable = statusBar.getRenderable()
   renderer.root.add(statusBarRenderable)
 
-  const session = startMpv(client, episodes, startIndex, statusBar)
+  const session = startMpv(client, episodes, startIndex, statusBar, (completedEpisode) => {
+    // Live update: episode completed during playback
+    debug("main", `Episode completed during playback: "${completedEpisode.Name}"`)
+    // Invalidate cache so next screen load gets fresh data
+    client.clearCache()
+    // If home screen is active, refresh it
+    if (currentScreen instanceof HomeScreen) {
+      currentScreen.refresh()
+    }
+  })
   activeSession = session
 
   try {
