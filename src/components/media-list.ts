@@ -125,39 +125,27 @@ export class MediaList {
         }
       },
       onMouseScroll: (event) => {
-        // Handle scroll wheel - select item under cursor
+        // Scroll = move selection up/down by one
         if (!event.scroll || !this.select) return
         
-        // Throttle: process first event, ignore subsequent ones within 50ms
+        // Throttle: some terminals fire multiple events per tick
         const now = Date.now()
         if (now - this.lastScrollTime < 50) return
         this.lastScrollTime = now
         
-        // Calculate which item is under the cursor
-        const itemHeight = 3 // Approximate rows per item (name + desc + spacing)
-        const relativeY = event.y - listPanel.y
-        const hoveredIndex = Math.floor(relativeY / itemHeight)
-        
-        if (hoveredIndex >= 0 && hoveredIndex < this.items.length) {
-          this.select.setSelectedIndex(hoveredIndex)
+        const current = this.select.getSelectedIndex()
+        if (event.scroll.direction === "up" && current > 0) {
+          this.select.setSelectedIndex(current - 1)
+        } else if (event.scroll.direction === "down" && current < this.items.length - 1) {
+          this.select.setSelectedIndex(current + 1)
         }
       },
       onMouseDown: (event) => {
-        // Calculate which item was clicked based on Y position
+        // Click = confirm selection on the currently highlighted item
         if (!this.select) return
-        
-        // Each item takes 2 or 3 rows (name + description + spacing)
-        // This is a rough estimate - SelectRenderable internals handle actual rendering
-        const itemHeight = 3 // Approximate rows per item
-        const relativeY = event.y - listPanel.y
-        const clickedIndex = Math.floor(relativeY / itemHeight)
-        
-        if (clickedIndex >= 0 && clickedIndex < this.items.length) {
-          this.select.setSelectedIndex(clickedIndex)
-          // Trigger selection
-          const item = this.items[clickedIndex]
-          if (item) this.onSelect(item)
-        }
+        const current = this.select.getSelectedIndex()
+        const item = this.items[current]
+        if (item) this.onSelect(item)
       },
     })
 
