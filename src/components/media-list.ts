@@ -150,17 +150,20 @@ export class MediaList {
 
     // Mouse handlers directly on SelectRenderable
     this.select.onMouseMove = (event) => {
+      debug("media-list", `onMouseMove: y=${event.y}, selectY=${this.select!.y}`)
       // Auto-focus + highlight item under cursor
       if (!this.select!.isFocused()) {
         this.select!.focus()
       }
       const idx = this.getItemIndexAtY(event.y)
+      debug("media-list", `Hover index: ${idx}, current: ${this.select!.getSelectedIndex()}`)
       if (idx !== null && idx !== this.select!.getSelectedIndex()) {
         this.select!.setSelectedIndex(idx)
       }
     }
 
     this.select.onMouseScroll = (event) => {
+      debug("media-list", `onMouseScroll: dir=${event.scroll?.direction}`)
       if (!event.scroll) return
 
       // Throttle
