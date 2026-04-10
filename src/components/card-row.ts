@@ -117,7 +117,7 @@ export class CardRow {
           if (newIndex >= 0 && newIndex < this.cards.length) {
             this.selectedIndex = newIndex
           }
-          this.updateScroll()
+          this.updateVisuals()
         }
       },
     })
