@@ -96,14 +96,15 @@ Use Jellyfin's REST API. Key endpoints:
 ### Planning files (IMPORTANT — maintain these)
 
 - **`PLANS.md`** — Long-term roadmap. Persistent across sessions. After completing a feature, mark it as done with `[x]`.
-- **`TODOS.md`** — Short-term task list for the current work session. Overwrite freely with new tasks as needed. update this file before starting anything from a new prompt. update it with any followups for keeping context between sessions. you can overwrite it if everything is done.
+- **`TODOS.md`** — Short-term task list for the current work session. Overwrite freely with new tasks as needed. update this file before starting anything from a new prompt. update it with any followups for keeping context between sessions. you can overwrite it if everything is done./
 
 ### Before coding
 
-1. Read the OpenTUI skill: `.pi/skills/opentui/SKILL.md`
-2. Check `PLANS.md` to understand current project state
-3. Check `TODOS.md` for immediate tasks
-4. Update `TODOS.md` with your plan before starting
+1. Checkout to feature brach with apropriate name
+2. Read the OpenTUI skill: `.pi/skills/opentui/SKILL.md`
+3. Check `PLANS.md` to understand current project state
+4. Check `TODOS.md` for immediate tasks
+5. Update `TODOS.md` with your plan before starting
 
 ### Code conventions
 
@@ -128,3 +129,5 @@ Use Jellyfin's REST API. Key endpoints:
 
 1. Mark it done in `PLANS.md` with `[x]`
 2. Update `TODOS.md` with next steps
+3. Commit code with clear message referencing the feature/task
+4. if feature is complete, squash commits into one with a clear message referencing the feature/task and merge to dev branch and checkout to it
