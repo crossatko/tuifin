@@ -71,7 +71,7 @@ function showHome() {
 
   const client = jellyfinClient
   const home = new HomeScreen(renderer, client, (action) => {
-    debug("main", "Home action", { type: action.type, name: action.item.Name })
+    debug("main", "Home action", { type: action.type, name: action.type !== "logout" ? action.item?.Name : undefined })
     switch (action.type) {
       case "open-item":
         showDetail(client, action.item)
@@ -81,6 +81,9 @@ function showHome() {
         break
       case "play":
         handlePlay(client, action.item)
+        break
+      case "logout":
+        handleLogout()
         break
     }
   })
@@ -149,6 +152,13 @@ function goBack() {
   }
 }
 
+async function handleLogout() {
+  debug("main", "Logging out...")
+  await clearSession()
+  jellyfinClient = null
+  showLogin()
+}
+
 async function handlePlay(client: JellyfinClient, item: JellyfinItem) {
   debug("main", "Starting playback", { name: item.Name, type: item.Type })
 
@@ -200,6 +210,7 @@ let activeSession: ReturnType<typeof startMpv> | null = null
 // Global quit handler
 renderer.keyInput.on("keypress", (key) => {
   if (key.name !== "q") return
+  if (key.shift) return // Shift+Q is for logout, not quit
   if (activeSession) {
     debug("main", "Stopping mpv via 'q'")
     activeSession.stop()

@@ -17,6 +17,7 @@ export type HomeAction =
   | { type: "open-item"; item: JellyfinItem }
   | { type: "open-library"; item: JellyfinItem }
   | { type: "play"; item: JellyfinItem }
+  | { type: "logout" }
 
 export class HomeScreen {
   private renderer: RenderContext
@@ -99,6 +100,10 @@ export class HomeScreen {
         }
       } else if (key.name === "up" || key.name === "k") {
         this.focusSection(this.activeSectionIndex - 1)
+      } else if (key.name === "q" && key.shift) {
+        // Shift+Q for logout
+        debug("home", "Logout requested")
+        this.onAction({ type: "logout" })
       }
     }
     renderer.keyInput.on("keypress", this.keyHandler)
@@ -118,9 +123,18 @@ export class HomeScreen {
 
     try {
       const [resumeItems, nextUpItems, libraries] = await Promise.all([
-        this.client.getResumeItems(10).catch(() => []),
-        this.client.getNextUp(10).catch(() => []),
-        this.client.getLibraries().catch(() => []),
+        this.client.getResumeItems(10).catch((err) => {
+          debug("home", "Failed to fetch resume items", { error: String(err) })
+          return []
+        }),
+        this.client.getNextUp(10).catch((err) => {
+          debug("home", "Failed to fetch next up", { error: String(err) })
+          return []
+        }),
+        this.client.getLibraries().catch((err) => {
+          debug("home", "Failed to fetch libraries", { error: String(err) })
+          throw err // Libraries are critical, propagate error
+        }),
       ])
 
       debug("home", "Data loaded", {
@@ -168,12 +182,23 @@ export class HomeScreen {
       content.remove("home-loading")
       loadingText.destroy()
 
+      const errorMsg = err instanceof Error ? err.message : "Unknown error"
       const errorText = new TextRenderable(this.renderer, {
         id: "home-error",
-        content: strings.home.loadError(err instanceof Error ? err.message : "Unknown error"),
+        content: strings.home.loadError(errorMsg),
         fg: theme.status.error,
       })
       content.add(errorText)
+
+      // Add retry hint
+      const retryHint = new TextRenderable(this.renderer, {
+        id: "home-retry-hint",
+        content: "Press Shift+Q to logout and try again",
+        fg: theme.text.muted,
+        attributes: TextAttributes.DIM,
+        marginTop: 1,
+      })
+      content.add(retryHint)
     }
   }
 
