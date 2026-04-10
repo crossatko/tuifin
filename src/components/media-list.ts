@@ -150,15 +150,21 @@ export class MediaList {
 
     // Mouse handlers directly on SelectRenderable
     this.select.onMouseMove = (event) => {
-      debug("media-list", `onMouseMove: y=${event.y}, selectY=${this.select!.y}`)
-      // Auto-focus + highlight item under cursor
-      if (!this.select!.isFocused()) {
-        this.select!.focus()
-      }
-      const idx = this.getItemIndexAtY(event.y)
-      debug("media-list", `Hover index: ${idx}, current: ${this.select!.getSelectedIndex()}`)
-      if (idx !== null && idx !== this.select!.getSelectedIndex()) {
-        this.select!.setSelectedIndex(idx)
+      try {
+        debug("media-list", `onMouseMove: y=${event.y}, selectY=${this.select!.y}`)
+        // Auto-focus + highlight item under cursor
+        if (!this.select!.isFocused()) {
+          debug("media-list", `Focusing select...`)
+          this.select!.focus()
+          debug("media-list", `Focused.`)
+        }
+        const idx = this.getItemIndexAtY(event.y)
+        debug("media-list", `Hover index: ${idx}, current: ${this.select!.getSelectedIndex()}`)
+        if (idx !== null && idx !== this.select!.getSelectedIndex()) {
+          this.select!.setSelectedIndex(idx)
+        }
+      } catch (err) {
+        debug("media-list", `onMouseMove ERROR: ${err}`)
       }
     }
 
