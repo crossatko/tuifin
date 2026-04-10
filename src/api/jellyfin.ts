@@ -223,4 +223,54 @@ export class JellyfinClient {
       }),
     })
   }
+
+  /**
+   * Get the next episode after the given episode.
+   * Returns null if this is the last episode of the series.
+   */
+  async getNextEpisode(currentEpisode: JellyfinItem): Promise<JellyfinItem | null> {
+    if (currentEpisode.Type !== "Episode" || !currentEpisode.SeriesId || !currentEpisode.SeasonId) {
+      return null
+    }
+
+    const seriesId = currentEpisode.SeriesId
+    const seasonId = currentEpisode.SeasonId
+    const currentEpisodeNumber = currentEpisode.IndexNumber ?? 0
+    const currentSeasonNumber = currentEpisode.ParentIndexNumber ?? 1
+
+    debug("api", `Finding next episode after S${currentSeasonNumber}E${currentEpisodeNumber}`)
+
+    // Get all episodes in current season
+    const episodes = await this.getEpisodes(seriesId, seasonId)
+    
+    // Find next episode in same season
+    const nextInSeason = episodes.find((ep) => (ep.IndexNumber ?? 0) === currentEpisodeNumber + 1)
+    if (nextInSeason) {
+      debug("api", `Next episode: S${currentSeasonNumber}E${nextInSeason.IndexNumber} "${nextInSeason.Name}"`)
+      return nextInSeason
+    }
+
+    debug("api", "No more episodes in season, checking next season...")
+
+    // No more episodes in current season — try next season
+    const seasons = await this.getSeasons(seriesId)
+    const nextSeason = seasons.find((s) => (s.IndexNumber ?? 0) === currentSeasonNumber + 1)
+    
+    if (!nextSeason) {
+      debug("api", "No next season found — series complete")
+      return null
+    }
+
+    // Get first episode of next season
+    const nextSeasonEpisodes = await this.getEpisodes(seriesId, nextSeason.Id)
+    const firstEpisode = nextSeasonEpisodes.find((ep) => ep.IndexNumber === 1) ?? nextSeasonEpisodes[0]
+    
+    if (firstEpisode) {
+      debug("api", `Next episode: S${nextSeason.IndexNumber}E${firstEpisode.IndexNumber} "${firstEpisode.Name}"`)
+    } else {
+      debug("api", "Next season has no episodes")
+    }
+
+    return firstEpisode ?? null
+  }
 }

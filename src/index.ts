@@ -166,6 +166,25 @@ async function handlePlay(client: JellyfinClient, item: JellyfinItem) {
     const result = await session.wait()
     debug("main", "Playback finished", result)
     await reportPlayback(client, item, result)
+
+    // Autoplay: if episode completed naturally, play next episode
+    if (result.completed && item.Type === "Episode") {
+      debug("main", "Episode completed, checking for next episode...")
+      try {
+        const nextEpisode = await client.getNextEpisode(item)
+        if (nextEpisode) {
+          debug("main", `Autoplay: ${nextEpisode.Name}`)
+          statusBar.destroy()
+          // Recursively play next episode
+          await handlePlay(client, nextEpisode)
+          return // Don't destroy statusBar again
+        } else {
+          debug("main", "No next episode — series complete")
+        }
+      } catch (err) {
+        debug("main", "Failed to fetch next episode", { error: String(err) })
+      }
+    }
   } catch (err) {
     debug("main", "Playback error", { error: String(err) })
   } finally {
