@@ -17,10 +17,11 @@
   - [x] Kitty image memory leak (MediaList preview images persisting after destroy)
   - [x] Ghost keypresses (SelectRenderable staying focused after MediaList destroy)
   - [x] Navigation stack fixes (Library → Series → Season back navigation)
-- [x] **Autoplay:** Automatically play next episode when current episode completes
+- [x] **Playlist playback:** Full series playlist with mpv prev/next navigation (< and > keys)
+- [x] **Progress tracking:** Multi-episode watch progress and completion sync
 
 ## Next Up
-- [ ] Test full flow: home → library → series → season → episode → play → autoplay
+- [ ] Test full flow: home → library → series → season → episode → play → mpv </> navigation
 - [ ] Poster image grid on home screen sections
 - [ ] Quick library sidebar (Phase 5)
 - [ ] Polish: loading spinners, error handling, keyboard help overlay

@@ -26,7 +26,8 @@
 - [x] Resume from last position
 - [x] Send playback progress to Jellyfin on mpv exit
 - [x] Mark items as watched on completion (>90%)
-- [x] Autoplay next episode when current episode completes
+- [x] Full series playlist with prev/next navigation (< and > keys in mpv)
+- [x] Multi-episode progress tracking and sync to Jellyfin
 
 ## Phase 5: Quick Library Sidebar
 - [ ] Evokable sidebar overlay (keybinding: Tab or similar)
