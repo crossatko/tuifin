@@ -44,6 +44,7 @@ export class MediaList {
   private previewImageCleanup: (() => void) | null = null
   private previewGeneration = 0
   private previewDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  private destroyed = false
   private searchBar: BoxRenderable | null = null
   private searchInput: InputRenderable | null = null
   private searching = false
@@ -271,6 +272,7 @@ export class MediaList {
   // --- Preview ---
 
   private schedulePreviewUpdate(item: JellyfinItem) {
+    if (this.destroyed) return
     if (this.previewDebounceTimer) clearTimeout(this.previewDebounceTimer)
     this.previewDebounceTimer = setTimeout(() => {
       this.previewDebounceTimer = null
@@ -279,7 +281,7 @@ export class MediaList {
   }
 
   private async updatePreview(item: JellyfinItem) {
-    if (!this.previewBox) return
+    if (this.destroyed || !this.previewBox) return
     const generation = ++this.previewGeneration
 
     if (this.previewImageCleanup) {
@@ -375,6 +377,7 @@ export class MediaList {
   }
 
   destroy() {
+    this.destroyed = true
     if (this.previewDebounceTimer) clearTimeout(this.previewDebounceTimer)
     // Increment generation to poison any in-flight updatePreview — when the async
     // createImageRenderable resolves it will see the mismatch and call cleanup()
@@ -384,6 +387,8 @@ export class MediaList {
       this.previewImageCleanup()
       this.previewImageCleanup = null
     }
+    // Blur the select to stop its internal key handler from firing events
+    this.select?.blur()
     this.renderer.keyInput.off("keypress", this.keyHandler)
     this.container.destroy()
   }
