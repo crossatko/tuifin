@@ -390,11 +390,16 @@ export class CardRow {
     const cardIndexInView = Math.floor(relativeX / (this.cardWidth + 1))
     const cardIndex = cardIndexInView + this.scrollOffset
     
+    debug("card-row", `updateSelectionFromCursor: cursorX=${cursorX}, containerX=${this.container.x}, relativeX=${relativeX}, cardIndexInView=${cardIndexInView}, scrollOffset=${this.scrollOffset}, cardIndex=${cardIndex}, cardsLength=${this.cards.length}`)
+    
     // Only update if cursor is over a valid card slot in the visible area
     const visible = this.getVisibleCount()
     if (cardIndexInView < visible && cardIndex >= 0 && cardIndex < this.cards.length) {
+      debug("card-row", `Setting selectedIndex to ${cardIndex} (was ${this.selectedIndex})`)
       this.selectedIndex = cardIndex
       this.updateVisuals()
+    } else {
+      debug("card-row", `NOT updating selection: cardIndexInView=${cardIndexInView} >= visible=${visible} OR cardIndex=${cardIndex} out of range`)
     }
   }
 
