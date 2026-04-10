@@ -88,27 +88,23 @@ export class CardRow {
         }
       },
       onMouseScroll: (event) => {
-        // Handle scroll wheel for horizontal scrolling
         if (!event.scroll) return
         
-        // Throttle: process first event, ignore subsequent ones within 50ms
-        // (Some terminals fire 3+ events per physical wheel tick)
+        // Throttle: some terminals fire 3+ events per physical wheel tick
         const now = Date.now()
         if (now - this.lastScrollTime < 50) return
         this.lastScrollTime = now
         
-        // Perform the scroll
+        // Remember which visible slot is currently highlighted
+        const visibleSlot = this.selectedIndex - this.scrollOffset
+        
+        // Scroll
         let didScroll = false
-        if (event.scroll.direction === "up") {
-          // Scroll left
-          if (this.scrollOffset > 0) {
-            this.scrollOffset--
-            didScroll = true
-          }
+        if (event.scroll.direction === "up" && this.scrollOffset > 0) {
+          this.scrollOffset--
+          didScroll = true
         } else if (event.scroll.direction === "down") {
-          // Scroll right
-          const visible = this.getVisibleCount()
-          const maxOffset = Math.max(0, this.cards.length - visible)
+          const maxOffset = Math.max(0, this.cards.length - this.getVisibleCount())
           if (this.scrollOffset < maxOffset) {
             this.scrollOffset++
             didScroll = true
@@ -116,10 +112,12 @@ export class CardRow {
         }
         
         if (didScroll) {
+          // Keep highlight at the same visible slot
+          const newIndex = this.scrollOffset + visibleSlot
+          if (newIndex >= 0 && newIndex < this.cards.length) {
+            this.selectedIndex = newIndex
+          }
           this.updateScroll()
-          // After scrolling, update selection to keep highlight under cursor
-          // This only updates if cursor is actually over a valid card
-          this.updateSelectionFromCursor(event.x, event.y)
         }
       },
     })
@@ -387,33 +385,6 @@ export class CardRow {
       this.keyHandler = null
     }
     this.updateVisuals()
-  }
-
-  /** Update selection based on cursor position (used after scrolling or mouse move) */
-  private updateSelectionFromCursor(cursorX: number, cursorY: number) {
-    // Calculate which visible card slot the cursor is over
-    // Don't use marginLeft - just calculate relative to container's current position
-    const relativeX = cursorX - this.container.x
-    
-    if (relativeX < 0) return // Cursor is before container
-    
-    // Calculate which visible slot (0 = first visible card, 1 = second visible card, etc.)
-    const visibleSlot = Math.floor(relativeX / (this.cardWidth + 1))
-    
-    // The real card index is: scrollOffset + visible slot
-    const cardIndex = this.scrollOffset + visibleSlot
-    
-    debug("card-row", `updateSelectionFromCursor: cursorX=${cursorX}, containerX=${this.container.x}, relativeX=${relativeX}, visibleSlot=${visibleSlot}, scrollOffset=${this.scrollOffset}, cardIndex=${cardIndex}`)
-    
-    // Only update if this is a valid card and within visible range
-    const visible = this.getVisibleCount()
-    if (visibleSlot >= 0 && visibleSlot < visible && cardIndex >= 0 && cardIndex < this.cards.length) {
-      debug("card-row", `Setting selectedIndex to ${cardIndex} (was ${this.selectedIndex})`)
-      this.selectedIndex = cardIndex
-      this.updateVisuals()
-    } else {
-      debug("card-row", `NOT updating: visibleSlot=${visibleSlot}, visible=${visible}, cardIndex=${cardIndex}, cardsLength=${this.cards.length}`)
-    }
   }
 
   getSelectedIndex(): number {
