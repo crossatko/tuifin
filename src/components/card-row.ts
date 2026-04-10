@@ -77,29 +77,32 @@ export class CardRow {
       flexDirection: "row",
       gap: 1,
       overflow: "hidden",
+      focusable: true,
       onMouseMove: (event) => {
         // Auto-focus row when mouse enters
         if (!this.focused) {
           this.focus()
           this.onFocus?.()
         }
-
+      },
+      onMouseScroll: (event) => {
         // Handle scroll wheel for horizontal scrolling
-        if (event.scroll) {
-          if (event.scroll.direction === "up") {
-            // Scroll left
-            if (this.scrollOffset > 0) {
-              this.scrollOffset--
-              this.updateScroll()
-            }
-          } else if (event.scroll.direction === "down") {
-            // Scroll right
-            const visible = this.getVisibleCount()
-            const maxOffset = Math.max(0, this.cards.length - visible)
-            if (this.scrollOffset < maxOffset) {
-              this.scrollOffset++
-              this.updateScroll()
-            }
+        if (!event.scroll) return
+        debug("card-row", `Scroll: ${event.scroll.direction}, offset=${this.scrollOffset}`)
+        
+        if (event.scroll.direction === "up") {
+          // Scroll left
+          if (this.scrollOffset > 0) {
+            this.scrollOffset--
+            this.updateScroll()
+          }
+        } else if (event.scroll.direction === "down") {
+          // Scroll right
+          const visible = this.getVisibleCount()
+          const maxOffset = Math.max(0, this.cards.length - visible)
+          if (this.scrollOffset < maxOffset) {
+            this.scrollOffset++
+            this.updateScroll()
           }
         }
       },

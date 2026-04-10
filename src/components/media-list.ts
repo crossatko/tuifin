@@ -121,15 +121,16 @@ export class MediaList {
         if (!this.select?.isFocused()) {
           this.select?.focus()
         }
-
+      },
+      onMouseScroll: (event) => {
         // Handle scroll wheel
-        if (event.scroll && this.select) {
-          const currentIndex = this.select.getSelectedIndex()
-          if (event.scroll.direction === "up" && currentIndex > 0) {
-            this.select.setSelectedIndex(currentIndex - 1)
-          } else if (event.scroll.direction === "down" && currentIndex < this.items.length - 1) {
-            this.select.setSelectedIndex(currentIndex + 1)
-          }
+        if (!event.scroll || !this.select) return
+        
+        const currentIndex = this.select.getSelectedIndex()
+        if (event.scroll.direction === "up" && currentIndex > 0) {
+          this.select.setSelectedIndex(currentIndex - 1)
+        } else if (event.scroll.direction === "down" && currentIndex < this.items.length - 1) {
+          this.select.setSelectedIndex(currentIndex + 1)
         }
       },
       onMouseDown: (event) => {
