@@ -65,6 +65,7 @@ export class LoginScreen {
       id: "login-subtitle",
       content: strings.login.subtitle,
       attributes: TextAttributes.DIM,
+      marginTop: 2,
     })
 
     // Form box

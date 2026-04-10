@@ -3,6 +3,7 @@
 import {
   BoxRenderable,
   TextRenderable,
+  ASCIIFontRenderable,
   TextAttributes,
   type RenderContext,
   type KeyEvent,
@@ -61,11 +62,11 @@ export class HomeScreen {
       paddingX: 2,
       paddingY: 1,
     })
-    const titleText = new TextRenderable(renderer, {
+    const titleText = new ASCIIFontRenderable(renderer, {
       id: "home-title",
-      content: strings.app.title,
-      fg: theme.accent,
-      attributes: TextAttributes.BOLD,
+      text: strings.app.name,
+      font: "tiny",
+      color: theme.accent,
     })
     header.add(titleText)
     this.container.add(header)
