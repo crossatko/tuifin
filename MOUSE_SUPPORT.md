@@ -46,55 +46,59 @@ This eliminates the need to keyboard-navigate to components before using the mou
 
 ### Event Handling
 - **Hover** (`onMouseMove`): Updates `selectedIndex` for visual feedback, auto-focuses components
+  - CardRow: Individual cards have onMouseMove handlers that update selection
+  - MediaList: Hovering list area auto-focuses SelectRenderable
 - **Click** (`onMouseDown`): Triggers selection actions
-- **Scroll** (`onMouseScroll`): Separate handler for wheel events
-  - CardRow: Horizontal scrolling (left/right through cards) + **selection follows cursor**
-  - MediaList: Vertical scrolling (up/down through list items) + **selection follows cursor**
-  - After scrolling, calculates which item is under the mouse cursor and updates selection
-  - Creates natural "scroll under cursor" feel
+- **Scroll** (`onMouseScroll`): Only scrolls content, **never updates selection**
+  - CardRow: Horizontal scrolling (left/right through cards)
+  - MediaList: Vertical scrolling (up/down through list items)
+  - Throttled to 50ms to filter duplicate events from terminals
+  - Selection updates only when mouse moves, not when scrolling
 
 ### Key Discovery
 Scroll events require a **separate `onMouseScroll` handler** - they don't come through `onMouseMove` with `event.scroll`. This was discovered by checking the tuidaw project which uses `onMouseScroll` successfully.
 
 ## Implementation Notes
 
-### Cursor-Following Scroll
-When scrolling with the mouse wheel, the selection updates based on cursor position:
+### Separation of Scroll and Selection
+**Scroll and selection are completely decoupled:**
 
-**CardRow (two-phase approach):**
+**Scrolling (onMouseScroll):**
+- Only changes `scrollOffset` to shift content
+- Never touches `selectedIndex`
+- Throttled to prevent duplicate events
+
 ```typescript
-// Phase 1: Perform the scroll
-if (event.scroll.direction === "up") {
-  this.scrollOffset--
-  this.updateScroll()
-}
-
-// Phase 2: Update selection based on where cursor is now
-this.updateSelectionFromCursor(event.x, event.y)
-```
-
-The helper method `updateSelectionFromCursor()` calculates which card is under the cursor:
-```typescript
-const relativeX = cursorX - this.container.x
-const cardIndexInView = Math.floor(relativeX / (this.cardWidth + 1))
-const cardIndex = cardIndexInView + this.scrollOffset
-// Only update if cursor is over a valid visible card
-if (cardIndexInView < visible && cardIndex >= 0 && cardIndex < this.cards.length) {
-  this.selectedIndex = cardIndex
+onMouseScroll: (event) => {
+  // Throttle
+  if (Date.now() - lastScrollTime < 50) return
+  
+  // Just scroll, don't update selection
+  if (event.scroll.direction === "up") {
+    this.scrollOffset--
+    this.updateScroll()
+  }
 }
 ```
 
-**MediaList:**
+**Selection (onMouseMove on card boxes):**
+- Updates `selectedIndex` when cursor enters a card
+- Works whether scrolled or not
+
 ```typescript
-// MediaList just updates SelectRenderable selection
-// SelectRenderable auto-scrolls to show the selected item
-const itemHeight = 3
-const relativeY = event.y - listPanel.y
-const hoveredIndex = Math.floor(relativeY / itemHeight)
-this.select.setSelectedIndex(hoveredIndex)
+// Each card box has its own onMouseMove
+onMouseMove: (event) => {
+  if (this.selectedIndex !== index) {
+    this.selectedIndex = index
+    this.updateVisuals()
+  }
+}
 ```
 
-This creates an intuitive experience where the highlight follows the cursor as you scroll.
+**Result:**
+- Scroll wheel → content scrolls, highlight stays on same card
+- Move mouse → highlight updates to card under cursor
+- Clean separation prevents highlight drift during scrolling
 
 ### MediaList Click Detection
 Clicking list items calculates the clicked index from Y position:
