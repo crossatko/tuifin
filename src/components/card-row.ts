@@ -105,6 +105,14 @@ export class CardRow {
             this.updateScroll()
           }
         }
+
+        // Update selected index to card under cursor
+        const relativeX = event.x - this.container.x
+        const cardIndex = Math.floor(relativeX / (this.cardWidth + 1)) + this.scrollOffset
+        if (cardIndex >= 0 && cardIndex < this.cards.length) {
+          this.selectedIndex = cardIndex
+          this.updateVisuals()
+        }
       },
     })
 

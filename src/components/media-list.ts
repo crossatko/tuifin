@@ -123,14 +123,16 @@ export class MediaList {
         }
       },
       onMouseScroll: (event) => {
-        // Handle scroll wheel
+        // Handle scroll wheel - select item under cursor
         if (!event.scroll || !this.select) return
         
-        const currentIndex = this.select.getSelectedIndex()
-        if (event.scroll.direction === "up" && currentIndex > 0) {
-          this.select.setSelectedIndex(currentIndex - 1)
-        } else if (event.scroll.direction === "down" && currentIndex < this.items.length - 1) {
-          this.select.setSelectedIndex(currentIndex + 1)
+        // Calculate which item is under the cursor
+        const itemHeight = 3 // Approximate rows per item (name + desc + spacing)
+        const relativeY = event.y - listPanel.y
+        const hoveredIndex = Math.floor(relativeY / itemHeight)
+        
+        if (hoveredIndex >= 0 && hoveredIndex < this.items.length) {
+          this.select.setSelectedIndex(hoveredIndex)
         }
       },
       onMouseDown: (event) => {
