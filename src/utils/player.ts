@@ -48,7 +48,6 @@ export function startMpv(
   writeFileSync(playlistPath, playlistLines.join("\n"))
 
   debug("mpv", `Generated playlist with ${episodes.length} episodes (starting at ${startIndex})`, { playlistPath })
-  debug("mpv", `First playlist URL: ${playlistLines[2]}`) // Log first actual URL
 
   // Start at resume position of the starting episode
   const startEpisode = episodes[startIndex] ?? episodes[0]!
@@ -71,7 +70,7 @@ export function startMpv(
     args.push(`--start=${startPosition}`)
   }
 
-  debug("mpv", `Spawning mpv with args`, { args: args.join(" ") })
+  debug("mpv", `Spawning mpv with playlist`, { ipcSocket, startIndex })
 
   const proc = Bun.spawn(args, {
     stdin: null,
