@@ -107,12 +107,12 @@ export class CardRow {
           }
         }
         
+        // Second: Only update selection if we actually scrolled
+        // If we're at the end/start, don't recalculate selection
         if (didScroll) {
           this.updateScroll()
+          this.updateSelectionFromCursor(event.x, event.y)
         }
-
-        // Second: after scrolling, update selection based on cursor position
-        this.updateSelectionFromCursor(event.x, event.y)
       },
     })
 
