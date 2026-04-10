@@ -66,6 +66,10 @@ export class PlaybackStatusBar {
     }
   }
 
+  updateTitle(title: string) {
+    this.titleText.content = `▶  ${title}`
+  }
+
   getRenderable(): BoxRenderable {
     return this.container
   }

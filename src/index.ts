@@ -152,6 +152,22 @@ function goBack() {
 async function handlePlay(client: JellyfinClient, item: JellyfinItem) {
   debug("main", "Starting playback", { name: item.Name, type: item.Type })
 
+  // Fetch playlist: for episodes, get full series; for movies, just the single item
+  let episodes: JellyfinItem[]
+  let startIndex = 0
+
+  if (item.Type === "Episode") {
+    debug("main", "Fetching series playlist...")
+    const playlist = await client.getSeriesPlaylist(item)
+    episodes = playlist.episodes
+    startIndex = playlist.startIndex
+    debug("main", `Playlist ready: ${episodes.length} episodes, starting at ${startIndex}`)
+  } else {
+    // For movies, single-item playlist
+    episodes = [item]
+    startIndex = 0
+  }
+
   // Add status bar to current screen's renderable
   const title = item.SeriesName
     ? `${item.SeriesName} — ${item.Name}`
@@ -159,32 +175,16 @@ async function handlePlay(client: JellyfinClient, item: JellyfinItem) {
   const statusBar = new PlaybackStatusBar(renderer, title)
   renderer.root.add(statusBar.getRenderable())
 
-  const session = startMpv(client, item, statusBar)
+  const session = startMpv(client, episodes, startIndex, statusBar)
   activeSession = session
 
   try {
     const result = await session.wait()
-    debug("main", "Playback finished", result)
-    await reportPlayback(client, item, result)
-
-    // Autoplay: if episode completed naturally, play next episode
-    if (result.completed && item.Type === "Episode") {
-      debug("main", "Episode completed, checking for next episode...")
-      try {
-        const nextEpisode = await client.getNextEpisode(item)
-        if (nextEpisode) {
-          debug("main", `Autoplay: ${nextEpisode.Name}`)
-          statusBar.destroy()
-          // Recursively play next episode
-          await handlePlay(client, nextEpisode)
-          return // Don't destroy statusBar again
-        } else {
-          debug("main", "No next episode — series complete")
-        }
-      } catch (err) {
-        debug("main", "Failed to fetch next episode", { error: String(err) })
-      }
-    }
+    debug("main", "Playback finished", {
+      watchedCount: result.episodeProgress.size,
+      completedCount: result.completedEpisodes.size,
+    })
+    await reportPlayback(client, result)
   } catch (err) {
     debug("main", "Playback error", { error: String(err) })
   } finally {

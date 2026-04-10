@@ -273,4 +273,49 @@ export class JellyfinClient {
 
     return firstEpisode ?? null
   }
+
+  /**
+   * Get all episodes in a series as a playlist, centered around the current episode.
+   * Returns episodes in order: entire series from S01E01 onwards.
+   * The startIndex in the returned object indicates where currentEpisode is in the array.
+   */
+  async getSeriesPlaylist(currentEpisode: JellyfinItem): Promise<{ episodes: JellyfinItem[]; startIndex: number }> {
+    if (currentEpisode.Type !== "Episode" || !currentEpisode.SeriesId) {
+      return { episodes: [currentEpisode], startIndex: 0 }
+    }
+
+    const seriesId = currentEpisode.SeriesId
+    const currentSeasonNumber = currentEpisode.ParentIndexNumber ?? 1
+    const currentEpisodeNumber = currentEpisode.IndexNumber ?? 1
+
+    debug("api", `Fetching full series playlist (current: S${currentSeasonNumber}E${currentEpisodeNumber})`)
+
+    // Get all seasons
+    const seasons = await this.getSeasons(seriesId)
+    const sortedSeasons = seasons.sort((a, b) => (a.IndexNumber ?? 0) - (b.IndexNumber ?? 0))
+
+    const allEpisodes: JellyfinItem[] = []
+    let startIndex = 0
+
+    for (const season of sortedSeasons) {
+      const seasonNumber = season.IndexNumber ?? 0
+      
+      const episodes = await this.getEpisodes(seriesId, season.Id)
+      const sortedEpisodes = episodes.sort((a, b) => (a.IndexNumber ?? 0) - (b.IndexNumber ?? 0))
+
+      for (const episode of sortedEpisodes) {
+        const epNumber = episode.IndexNumber ?? 0
+        
+        // Track where the current episode is in the playlist
+        if (seasonNumber === currentSeasonNumber && epNumber === currentEpisodeNumber) {
+          startIndex = allEpisodes.length
+        }
+
+        allEpisodes.push(episode)
+      }
+    }
+
+    debug("api", `Built playlist with ${allEpisodes.length} episodes, starting at index ${startIndex}`)
+    return { episodes: allEpisodes, startIndex }
+  }
 }
