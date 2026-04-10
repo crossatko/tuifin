@@ -91,6 +91,12 @@ export function startMpv(
         const playlistPos = await ipcGet(ipcSocket, "playlist-pos")
         const timePos = await ipcGet(ipcSocket, "time-pos")
         const duration = await ipcGet(ipcSocket, "duration")
+        const paused = await ipcGetBool(ipcSocket, "pause")
+
+        // Update pause state in status bar
+        if (paused != null) {
+          statusBar.updatePauseState(paused)
+        }
 
         // Detect playlist position change (user pressed < or >)
         if (playlistPos != null && playlistPos !== currentPlaylistIndex) {
@@ -202,6 +208,39 @@ async function ipcGet(socketPath: string, property: string): Promise<number | nu
         clearTimeout(timeout)
         socket.destroy()
         resolve(typeof resp.data === "number" ? resp.data : null)
+      } catch {}
+    })
+
+    socket.on("error", () => {
+      clearTimeout(timeout)
+      resolve(null)
+    })
+  })
+}
+
+/**
+ * Query a boolean property from mpv's IPC socket.
+ */
+async function ipcGetBool(socketPath: string, property: string): Promise<boolean | null> {
+  const { connect } = await import("node:net")
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      socket.destroy()
+      resolve(null)
+    }, 500)
+
+    const socket = connect(socketPath, () => {
+      socket.write(JSON.stringify({ command: ["get_property", property] }) + "\n")
+    })
+
+    let data = ""
+    socket.on("data", (chunk) => {
+      data += chunk.toString()
+      try {
+        const resp = JSON.parse(data)
+        clearTimeout(timeout)
+        socket.destroy()
+        resolve(typeof resp.data === "boolean" ? resp.data : null)
       } catch {}
     })
 
