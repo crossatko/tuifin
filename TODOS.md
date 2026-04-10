@@ -17,11 +17,15 @@
   - [x] Kitty image memory leak (MediaList preview images persisting after destroy)
   - [x] Ghost keypresses (SelectRenderable staying focused after MediaList destroy)
   - [x] Navigation stack fixes (Library → Series → Season back navigation)
+  - [x] Status bar not disappearing after mpv exit
+  - [x] Episode thumbnail aspect ratio (16:9)
+  - [x] Dynamic play/pause icon in status bar
 - [x] **Playlist playback:** Full series playlist with mpv prev/next navigation (< and > keys)
 - [x] **Progress tracking:** Multi-episode watch progress and completion sync
+- [x] **Logout:** Shift+Q to logout and return to login screen
+- [x] **Error handling:** Better login errors, network failures, partial data loading
 
 ## Next Up
 - [ ] Test full flow: home → library → series → season → episode → play → mpv </> navigation
-- [ ] Poster image grid on home screen sections
+- [ ] Polish: loading spinners, keyboard help overlay
 - [ ] Quick library sidebar (Phase 5)
-- [ ] Polish: loading spinners, error handling, keyboard help overlay
