@@ -44,26 +44,42 @@ Scroll events require a **separate `onMouseScroll` handler** - they don't come t
 ## Implementation Notes
 
 ### Cursor-Following Scroll
-When scrolling with the mouse wheel, the selection follows the cursor:
+When scrolling with the mouse wheel, the selection updates based on cursor position:
 
-**CardRow:**
+**CardRow (two-phase approach):**
 ```typescript
-// After scrolling, calculate which card is under cursor
-const relativeX = event.x - this.container.x
-const cardIndex = Math.floor(relativeX / (this.cardWidth + 1)) + this.scrollOffset
-this.selectedIndex = cardIndex
+// Phase 1: Perform the scroll
+if (event.scroll.direction === "up") {
+  this.scrollOffset--
+  this.updateScroll()
+}
+
+// Phase 2: Update selection based on where cursor is now
+this.updateSelectionFromCursor(event.x, event.y)
+```
+
+The helper method `updateSelectionFromCursor()` calculates which card is under the cursor:
+```typescript
+const relativeX = cursorX - this.container.x
+const cardIndexInView = Math.floor(relativeX / (this.cardWidth + 1))
+const cardIndex = cardIndexInView + this.scrollOffset
+// Only update if cursor is over a valid visible card
+if (cardIndexInView < visible && cardIndex >= 0 && cardIndex < this.cards.length) {
+  this.selectedIndex = cardIndex
+}
 ```
 
 **MediaList:**
 ```typescript
-// Calculate which item is under cursor Y position
-const itemHeight = 3 // Rows per item
+// MediaList just updates SelectRenderable selection
+// SelectRenderable auto-scrolls to show the selected item
+const itemHeight = 3
 const relativeY = event.y - listPanel.y
 const hoveredIndex = Math.floor(relativeY / itemHeight)
 this.select.setSelectedIndex(hoveredIndex)
 ```
 
-This creates an intuitive experience where the highlight sticks to the cursor as you scroll.
+This creates an intuitive experience where the highlight follows the cursor as you scroll.
 
 ### MediaList Click Detection
 Clicking list items calculates the clicked index from Y position:
