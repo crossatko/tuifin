@@ -120,12 +120,18 @@ export class MediaList {
       overflow: "hidden",
       onMouseMove: (event) => {
         // Auto-focus select when mouse enters list area
-        if (!this.select?.isFocused()) {
-          this.select?.focus()
+        if (this.select && !this.select.isFocused()) {
+          this.select.focus()
+        }
+        // Highlight item under cursor
+        if (this.select) {
+          const idx = this.getItemIndexAtY(event.y)
+          if (idx !== null && idx !== this.select.getSelectedIndex()) {
+            this.select.setSelectedIndex(idx)
+          }
         }
       },
       onMouseScroll: (event) => {
-        // Scroll = move selection up/down by one
         if (!event.scroll || !this.select) return
         
         // Throttle: some terminals fire multiple events per tick
@@ -141,11 +147,14 @@ export class MediaList {
         }
       },
       onMouseDown: (event) => {
-        // Click = confirm selection on the currently highlighted item
+        // Click the item under cursor
         if (!this.select) return
-        const current = this.select.getSelectedIndex()
-        const item = this.items[current]
-        if (item) this.onSelect(item)
+        const idx = this.getItemIndexAtY(event.y)
+        if (idx !== null) {
+          this.select.setSelectedIndex(idx)
+          const item = this.items[idx]
+          if (item) this.onSelect(item)
+        }
       },
     })
 
@@ -405,6 +414,23 @@ export class MediaList {
         truncate: true,
       }))
     }
+  }
+
+  /** Map a screen Y coordinate to a list item index, accounting for SelectRenderable's scroll offset */
+  private getItemIndexAtY(screenY: number): number | null {
+    if (!this.select) return null
+    const relativeY = screenY - this.select.y
+    if (relativeY < 0) return null
+    
+    // SelectRenderable uses linesPerItem=2 (name + description) by default
+    const linesPerItem = 2
+    const visibleSlot = Math.floor(relativeY / linesPerItem)
+    const itemIndex = (this.select as any).scrollOffset + visibleSlot
+    
+    if (itemIndex >= 0 && itemIndex < this.items.length) {
+      return itemIndex
+    }
+    return null
   }
 
   getRenderable(): BoxRenderable {
