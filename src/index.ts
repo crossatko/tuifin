@@ -112,20 +112,16 @@ function showLibrary(client: JellyfinClient, library: JellyfinItem) {
 function showDetail(client: JellyfinClient, item: JellyfinItem) {
   debug("main", "Showing detail", { name: item.Name, type: item.Type })
 
-  // Push current screen restore onto nav stack
-  // We can't easily restore the previous screen, so we push a factory
-  navStack.push(() => {
-    // Go back means pop this and show whatever was before
-    // For simplicity, if stack is empty go home
-    if (navStack.length === 0) {
-      showHome()
-    }
-  })
-
+  // Don't push to navStack here — the caller (showLibrary / showHome action handler)
+  // already has the right "go back" entry on the stack.
+  // When navigating deeper (series → season), we push a factory to re-open THIS
+  // item so the user can go back to it from the child screen.
   const screen = new DetailScreen(renderer, client, item, (action) => {
     debug("main", "Detail action", { type: action.type })
     switch (action.type) {
       case "open-item":
+        // Push factory so back-from-child returns here
+        navStack.push(() => showDetail(client, item))
         showDetail(client, action.item)
         break
       case "play":

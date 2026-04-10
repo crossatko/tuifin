@@ -376,7 +376,14 @@ export class MediaList {
 
   destroy() {
     if (this.previewDebounceTimer) clearTimeout(this.previewDebounceTimer)
-    if (this.previewImageCleanup) this.previewImageCleanup()
+    // Increment generation to poison any in-flight updatePreview — when the async
+    // createImageRenderable resolves it will see the mismatch and call cleanup()
+    // itself instead of storing the image on a dead object.
+    this.previewGeneration++
+    if (this.previewImageCleanup) {
+      this.previewImageCleanup()
+      this.previewImageCleanup = null
+    }
     this.renderer.keyInput.off("keypress", this.keyHandler)
     this.container.destroy()
   }
