@@ -25,8 +25,8 @@
 - [x] **Logout:** Shift+Q to logout and return to login screen
 - [x] **Error handling:** Better login errors, network failures, partial data loading
 - [x] **Mouse support:**
-  - [x] CardRow: hover (auto-focus), click, horizontal scroll, exclusive focus
-  - [x] MediaList: hover (auto-focus), click, vertical scroll
+  - [x] CardRow: hover (auto-focus), click, horizontal scroll, exclusive focus, cursor-following
+  - [x] MediaList: hover (auto-focus), click, vertical scroll, cursor-following
   - [x] Login: click-to-focus inputs
 
 ## Next Up
