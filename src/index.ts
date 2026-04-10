@@ -173,7 +173,8 @@ async function handlePlay(client: JellyfinClient, item: JellyfinItem) {
     ? `${item.SeriesName} — ${item.Name}`
     : item.Name
   const statusBar = new PlaybackStatusBar(renderer, title)
-  renderer.root.add(statusBar.getRenderable())
+  const statusBarRenderable = statusBar.getRenderable()
+  renderer.root.add(statusBarRenderable)
 
   const session = startMpv(client, episodes, startIndex, statusBar)
   activeSession = session
@@ -189,6 +190,7 @@ async function handlePlay(client: JellyfinClient, item: JellyfinItem) {
     debug("main", "Playback error", { error: String(err) })
   } finally {
     activeSession = null
+    renderer.root.remove(statusBarRenderable.id)
     statusBar.destroy()
   }
 }
