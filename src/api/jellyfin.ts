@@ -194,7 +194,11 @@ export class JellyfinClient {
   }
 
   getStreamUrl(itemId: string): string {
-    return `${this.config.serverUrl}/Videos/${itemId}/stream?Static=true&api_key=${this.config.accessToken}`
+    let base = this.config.serverUrl
+    if (!base.startsWith("http://") && !base.startsWith("https://")) {
+      base = `http://${base}`
+    }
+    return `${base}/Videos/${itemId}/stream?Static=true&api_key=${this.config.accessToken}`
   }
 
   async markPlayed(itemId: string): Promise<void> {

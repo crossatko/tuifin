@@ -59,7 +59,7 @@ export function startMpv(
   const args = [
     "mpv",
     playlistPath,
-    // "--no-terminal",  // Temporarily disabled to see errors
+    "--no-terminal",
     "--force-window",
     "--x11-name=jellytui-mpv",
     "--wayland-app-id=jellytui-mpv",
