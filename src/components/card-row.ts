@@ -35,6 +35,8 @@ export interface CardRowOptions {
   /** Number of text rows below the image (default 3: title + subtitle + subtitle2) */
   textRows?: number
   onSelect?: (index: number) => void
+  /** Called when this row receives focus (keyboard or mouse) */
+  onFocus?: () => void
 }
 
 const DEFAULT_CARD_WIDTH = 18
@@ -51,6 +53,7 @@ export class CardRow {
   private imgHeight: number
   private textRows: number
   private onSelect?: (index: number) => void
+  private onFocus?: () => void
   private focused = false
   private keyHandler: ((key: KeyEvent) => void) | null = null
   private imageCleanups: (() => void)[] = []
@@ -62,6 +65,7 @@ export class CardRow {
     this.cards = options.cards
     this.cardWidth = options.cardWidth ?? DEFAULT_CARD_WIDTH
     this.onSelect = options.onSelect
+    this.onFocus = options.onFocus
 
     const imgWidth = this.cardWidth - 2
     this.imgHeight = options.cardHeight ?? DEFAULT_IMG_HEIGHT
@@ -77,6 +81,7 @@ export class CardRow {
         // Auto-focus row when mouse enters
         if (!this.focused) {
           this.focus()
+          this.onFocus?.()
         }
 
         // Handle scroll wheel for horizontal scrolling
@@ -332,6 +337,7 @@ export class CardRow {
   focus() {
     if (this.focused) return
     this.focused = true
+    this.onFocus?.()
     debug("card-row", `Focus on "${this.container.id}"`)
 
     this.keyHandler = (key: KeyEvent) => {

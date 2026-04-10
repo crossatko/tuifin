@@ -256,6 +256,14 @@ export class HomeScreen {
           }
         }
       },
+      onFocus: () => {
+        // Blur all other rows when this one is focused
+        this.sections.forEach((s) => {
+          if (s.cardRow !== cardRow) {
+            s.cardRow.blur()
+          }
+        })
+      },
     })
 
     section.add(cardRow.getRenderable())

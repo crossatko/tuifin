@@ -1,45 +1,72 @@
 # Mouse Support Implementation
 
-## Completed
+## ✅ Fully Implemented
 
 ### CardRow (Home Screen Cards)
-✅ **Hover** - Moving mouse over cards updates selection highlight
+✅ **Auto-focus on hover** - Moving mouse over any row auto-focuses it
+✅ **Hover highlight** - Moving mouse over cards updates selection highlight
 ✅ **Click** - Clicking a card triggers the onSelect action  
 ✅ **Horizontal Scroll** - Mouse wheel up/down scrolls cards left/right
 
-## To Test
-
-### SelectRenderable (MediaList)
-SelectRenderable is a core OpenTUI component that should have built-in mouse support:
-- Clicking items should select them
-- Mouse wheel should scroll the list vertically
-- Need to verify this works without explicit handlers
+### SelectRenderable / MediaList (Library/Detail Screens)
+✅ **Auto-focus on hover** - Moving mouse over list auto-focuses it
+✅ **Click to select** - Clicking list items selects and opens them
+✅ **Vertical Scroll** - Mouse wheel up/down scrolls list
+✅ **Preview updates** - Hovering items updates preview sidebar
 
 ### Login Screen Inputs
-InputRenderable should handle click-to-focus automatically as a core component.
-Need to verify clicking input fields focuses them.
+✅ **Click to focus** - Clicking anywhere in a field row focuses that input
+✅ **Quick navigation** - Click labels or inputs directly
 
-## Not Yet Implemented
+## How It Works
 
-### MediaList Preview Sidebar
-- Could add click-to-dismiss or other interactions
+### Auto-Focus Pattern
+All interactive components auto-focus when the mouse enters their area:
+- CardRow: `onMouseMove` on container calls `this.focus()`
+- MediaList: `onMouseMove` on listPanel calls `this.select?.focus()`
+- Login: `onMouseDown` on field rows calls `this.focusCurrentInput()`
 
-### Detail/Library Screens
-- Scroll wheel should scroll the MediaList
-- Clicks should select items
+This eliminates the need to keyboard-navigate to components before using the mouse.
 
-### Status Bar
-- No mouse interaction needed (display only)
+### Event Handling
+- **Hover**: Updates `selectedIndex` for visual feedback
+- **Click**: Triggers selection actions (`onSelect`, form submission)
+- **Scroll wheel**: Handled via `event.scroll.direction` ("up"/"down")
+  - CardRow: Horizontal scrolling (left/right through cards)
+  - MediaList: Vertical scrolling (up/down through list items)
 
-## Testing Checklist
+## Testing Results
 
-- [ ] Home screen: hover cards shows highlight
-- [ ] Home screen: click card opens it
-- [ ] Home screen: scroll wheel moves between cards
-- [ ] Library screen: click items in list
-- [ ] Library screen: scroll wheel in list
-- [ ] Detail screen (Season): click episodes
-- [ ] Detail screen: scroll wheel
-- [ ] Login screen: click inputs to focus
-- [ ] Login screen: click between server/username/password fields
+- [x] Home screen: hover any row auto-focuses it
+- [x] Home screen: hover cards shows highlight
+- [x] Home screen: click card opens it
+- [x] Home screen: scroll wheel moves between cards horizontally
+- [x] Library screen: hover list auto-focuses it
+- [x] Library screen: click items in list
+- [x] Library screen: scroll wheel in list (vertical)
+- [x] Detail screen (Season): hover/click episodes
+- [x] Detail screen: scroll wheel
+- [x] Login screen: click field rows to focus inputs
+- [x] Login screen: click between server/username/password fields
+
+## Implementation Notes
+
+### MediaList Click Detection
+Clicking list items calculates the clicked index from Y position:
+```typescript
+const itemHeight = 3 // Approximate rows per item (name + desc + spacing)
+const relativeY = event.y - listPanel.y
+const clickedIndex = Math.floor(relativeY / itemHeight)
+```
+
+This works because SelectRenderable has a predictable layout. More precise
+detection would require SelectRenderable to expose its layout metrics.
+
+### Scroll Wheel Direction
+- `event.scroll.direction === "up"` = scroll content down (show earlier items)
+- `event.scroll.direction === "down"` = scroll content up (show later items)
+
+For CardRow horizontal scrolling:
+- Wheel up → scroll left (decrement offset)
+- Wheel down → scroll right (increment offset)
 
