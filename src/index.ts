@@ -216,7 +216,9 @@ renderer.keyInput.on("keypress", (key) => {
     activeSession.stop()
   } else if (!(currentScreen instanceof LoginScreen)) {
     debug("main", "Quit requested via 'q' key")
+    cleanupAllImages()
     renderer.destroy()
+    process.exit(0)
   }
 })
 

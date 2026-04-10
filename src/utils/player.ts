@@ -59,6 +59,7 @@ export function startMpv(
     "mpv",
     playlistPath,
     "--no-terminal",
+    "--force-window",
     "--x11-name=jellytui-mpv",
     "--wayland-app-id=jellytui-mpv",
     `--title=${startEpisode.SeriesName ?? startEpisode.Name}`,
@@ -73,24 +74,20 @@ export function startMpv(
 
   const proc = Bun.spawn(args, {
     stdin: null,
-    stdout: null,
+    stdout: "pipe",
     stderr: "pipe",
   })
 
-  // Log mpv stderr for debugging
-  if (proc.stderr) {
-    const reader = proc.stderr.getReader()
-    ;(async () => {
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          const text = new TextDecoder().decode(value)
-          debug("mpv", `stderr: ${text.trim()}`)
-        }
-      } catch {}
-    })()
+  // Collect stderr/stdout for debugging
+  const collectOutput = async (stream: ReadableStream<Uint8Array> | null, label: string) => {
+    if (!stream) return
+    try {
+      const text = await new Response(stream).text()
+      if (text.trim()) debug("mpv", `${label}: ${text.trim()}`)
+    } catch {}
   }
+  collectOutput(proc.stdout, "stdout")
+  collectOutput(proc.stderr, "stderr")
 
   // Track progress for each episode
   const episodeProgress = new Map<string, number>()
