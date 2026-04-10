@@ -198,12 +198,8 @@ export class MediaList {
     }
 
     this.select.onMouseDown = (event) => {
-      // Right-click or back button = go back
-      if (event.button === 2) {
-        this.onBack()
-        return
-      }
       // Left-click = open item under cursor
+      if (event.button !== 0) return
       const idx = this.getItemIndexAtY(event.y)
       if (idx !== null) {
         const scrollOff = (this.select as any).scrollOffset
