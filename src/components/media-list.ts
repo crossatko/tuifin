@@ -116,6 +116,39 @@ export class MediaList {
       flexDirection: "column",
       flexGrow: 1,
       overflow: "hidden",
+      onMouseMove: (event) => {
+        // Auto-focus select when mouse enters list area
+        if (!this.select?.isFocused()) {
+          this.select?.focus()
+        }
+
+        // Handle scroll wheel
+        if (event.scroll && this.select) {
+          const currentIndex = this.select.getSelectedIndex()
+          if (event.scroll.direction === "up" && currentIndex > 0) {
+            this.select.setSelectedIndex(currentIndex - 1)
+          } else if (event.scroll.direction === "down" && currentIndex < this.items.length - 1) {
+            this.select.setSelectedIndex(currentIndex + 1)
+          }
+        }
+      },
+      onMouseDown: (event) => {
+        // Calculate which item was clicked based on Y position
+        if (!this.select) return
+        
+        // Each item takes 2 or 3 rows (name + description + spacing)
+        // This is a rough estimate - SelectRenderable internals handle actual rendering
+        const itemHeight = 3 // Approximate rows per item
+        const relativeY = event.y - listPanel.y
+        const clickedIndex = Math.floor(relativeY / itemHeight)
+        
+        if (clickedIndex >= 0 && clickedIndex < this.items.length) {
+          this.select.setSelectedIndex(clickedIndex)
+          // Trigger selection
+          const item = this.items[clickedIndex]
+          if (item) this.onSelect(item)
+        }
+      },
     })
 
     const options = this.items.map((item) => ({

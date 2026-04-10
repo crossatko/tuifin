@@ -74,6 +74,11 @@ export class CardRow {
       gap: 1,
       overflow: "hidden",
       onMouseMove: (event) => {
+        // Auto-focus row when mouse enters
+        if (!this.focused) {
+          this.focus()
+        }
+
         // Handle scroll wheel for horizontal scrolling
         if (event.scroll) {
           if (event.scroll.direction === "up") {
@@ -117,6 +122,8 @@ export class CardRow {
       overflow: "hidden",
       onMouseDown: (event) => {
         // Click triggers selection
+        this.selectedIndex = index
+        this.updateVisuals()
         this.onSelect?.(index)
       },
       onMouseMove: (event) => {

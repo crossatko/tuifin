@@ -179,6 +179,12 @@ export class LoginScreen {
       flexDirection: "row",
       gap: 1,
       alignItems: "center",
+      onMouseDown: (event) => {
+        // Focus corresponding input when clicking anywhere in the row
+        const inputIndex = id.includes("server") ? 0 : id.includes("user") ? 1 : 2
+        this.focusIndex = inputIndex
+        this.focusCurrentInput()
+      },
     })
     const labelText = new TextRenderable(renderer, {
       id: `${id}-label`,
