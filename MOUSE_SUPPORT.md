@@ -33,13 +33,37 @@ This eliminates the need to keyboard-navigate to components before using the mou
 - **Hover** (`onMouseMove`): Updates `selectedIndex` for visual feedback, auto-focuses components
 - **Click** (`onMouseDown`): Triggers selection actions
 - **Scroll** (`onMouseScroll`): Separate handler for wheel events
-  - CardRow: Horizontal scrolling (left/right through cards)
-  - MediaList: Vertical scrolling (up/down through list items)
+  - CardRow: Horizontal scrolling (left/right through cards) + **selection follows cursor**
+  - MediaList: Vertical scrolling (up/down through list items) + **selection follows cursor**
+  - After scrolling, calculates which item is under the mouse cursor and updates selection
+  - Creates natural "scroll under cursor" feel
 
 ### Key Discovery
 Scroll events require a **separate `onMouseScroll` handler** - they don't come through `onMouseMove` with `event.scroll`. This was discovered by checking the tuidaw project which uses `onMouseScroll` successfully.
 
 ## Implementation Notes
+
+### Cursor-Following Scroll
+When scrolling with the mouse wheel, the selection follows the cursor:
+
+**CardRow:**
+```typescript
+// After scrolling, calculate which card is under cursor
+const relativeX = event.x - this.container.x
+const cardIndex = Math.floor(relativeX / (this.cardWidth + 1)) + this.scrollOffset
+this.selectedIndex = cardIndex
+```
+
+**MediaList:**
+```typescript
+// Calculate which item is under cursor Y position
+const itemHeight = 3 // Rows per item
+const relativeY = event.y - listPanel.y
+const hoveredIndex = Math.floor(relativeY / itemHeight)
+this.select.setSelectedIndex(hoveredIndex)
+```
+
+This creates an intuitive experience where the highlight sticks to the cursor as you scroll.
 
 ### MediaList Click Detection
 Clicking list items calculates the clicked index from Y position:
