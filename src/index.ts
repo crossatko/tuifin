@@ -98,6 +98,8 @@ function showLibrary(client: JellyfinClient, library: JellyfinItem) {
     debug("main", "Library action", { type: action.type })
     switch (action.type) {
       case "open-item":
+        // Push library restoration so back-from-detail returns here
+        navStack.push(() => showLibrary(client, library))
         showDetail(client, action.item)
         break
       case "back":
