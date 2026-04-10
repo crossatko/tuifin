@@ -151,13 +151,17 @@ export class MediaList {
     // Mouse handlers directly on SelectRenderable
     this.select.onMouseMove = (event) => {
       try {
-        // Auto-focus + highlight item under cursor
+        // Auto-focus
         if (!this.select!.focused) {
           this.select!.focus()
         }
+        // Highlight item under cursor WITHOUT scrolling the viewport
         const idx = this.getItemIndexAtY(event.y)
         if (idx !== null && idx !== this.select!.getSelectedIndex()) {
+          // Save scroll position, set index, restore scroll position
+          const scrollOff = (this.select as any).scrollOffset
           this.select!.setSelectedIndex(idx)
+          ;(this.select as any).scrollOffset = scrollOff
         }
       } catch (err) {
         debug("media-list", `onMouseMove ERROR: ${err}`)
