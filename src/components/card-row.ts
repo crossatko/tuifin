@@ -383,26 +383,28 @@ export class CardRow {
 
   /** Update selection based on cursor position (used after scrolling or mouse move) */
   private updateSelectionFromCursor(cursorX: number, cursorY: number) {
-    // When we scroll, we shift ALL cards left by marginLeft
-    // Card N is at: container.x + marginLeft + N * (cardWidth + 1)
-    // So we can directly calculate the real card index from cursor position
-    const visualX = this.container.x + (this.container.marginLeft || 0)
-    const relativeX = cursorX - visualX
+    // Calculate which visible card slot the cursor is over
+    // Don't use marginLeft - just calculate relative to container's current position
+    const relativeX = cursorX - this.container.x
     
-    if (relativeX < 0) return // Cursor is before visible content
+    if (relativeX < 0) return // Cursor is before container
     
-    // Calculate which card (real index, not visible index)
-    const cardIndex = Math.floor(relativeX / (this.cardWidth + 1))
+    // Calculate which visible slot (0 = first visible card, 1 = second visible card, etc.)
+    const visibleSlot = Math.floor(relativeX / (this.cardWidth + 1))
     
-    debug("card-row", `updateSelectionFromCursor: cursorX=${cursorX}, containerX=${this.container.x}, marginLeft=${this.container.marginLeft || 0}, visualX=${visualX}, relativeX=${relativeX}, cardIndex=${cardIndex}, cardsLength=${this.cards.length}`)
+    // The real card index is: scrollOffset + visible slot
+    const cardIndex = this.scrollOffset + visibleSlot
     
-    // Only update if this is a valid card
-    if (cardIndex >= 0 && cardIndex < this.cards.length) {
+    debug("card-row", `updateSelectionFromCursor: cursorX=${cursorX}, containerX=${this.container.x}, relativeX=${relativeX}, visibleSlot=${visibleSlot}, scrollOffset=${this.scrollOffset}, cardIndex=${cardIndex}`)
+    
+    // Only update if this is a valid card and within visible range
+    const visible = this.getVisibleCount()
+    if (visibleSlot >= 0 && visibleSlot < visible && cardIndex >= 0 && cardIndex < this.cards.length) {
       debug("card-row", `Setting selectedIndex to ${cardIndex} (was ${this.selectedIndex})`)
       this.selectedIndex = cardIndex
       this.updateVisuals()
     } else {
-      debug("card-row", `NOT updating selection: cardIndex=${cardIndex} out of range [0, ${this.cards.length})`)
+      debug("card-row", `NOT updating: visibleSlot=${visibleSlot}, visible=${visible}, cardIndex=${cardIndex}, cardsLength=${this.cards.length}`)
     }
   }
 
