@@ -169,19 +169,31 @@ export class MediaList {
     }
 
     this.select.onMouseScroll = (event) => {
-      if (!event.scroll) return
+      if (!event.scroll || !this.select) return
 
       // Throttle
       const now = Date.now()
       if (now - this.lastScrollTime < 50) return
       this.lastScrollTime = now
 
-      // Scroll viewport and keep highlight under cursor
-      const current = this.select!.getSelectedIndex()
-      if (event.scroll.direction === "up" && current > 0) {
-        this.select!.setSelectedIndex(current - 1)
-      } else if (event.scroll.direction === "down" && current < this.items.length - 1) {
-        this.select!.setSelectedIndex(current + 1)
+      // Manually scroll the viewport without changing selection
+      const sel = this.select as any
+      const maxScroll = Math.max(0, this.items.length - (sel.maxVisibleItems ?? 1))
+      
+      if (event.scroll.direction === "up" && sel.scrollOffset > 0) {
+        sel.scrollOffset--
+        sel.requestRender()
+      } else if (event.scroll.direction === "down" && sel.scrollOffset < maxScroll) {
+        sel.scrollOffset++
+        sel.requestRender()
+      }
+
+      // Update highlight to item under cursor without scrolling viewport
+      const idx = this.getItemIndexAtY(event.x !== undefined ? event.y : 0)
+      if (idx !== null) {
+        const scrollOff = sel.scrollOffset
+        this.select.setSelectedIndex(idx)
+        sel.scrollOffset = scrollOff
       }
     }
 
