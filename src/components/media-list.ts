@@ -118,44 +118,6 @@ export class MediaList {
       flexDirection: "column",
       flexGrow: 1,
       overflow: "hidden",
-      onMouseMove: (event) => {
-        // Auto-focus select when mouse enters list area
-        if (this.select && !this.select.isFocused()) {
-          this.select.focus()
-        }
-        // Highlight item under cursor
-        if (this.select) {
-          const idx = this.getItemIndexAtY(event.y)
-          if (idx !== null && idx !== this.select.getSelectedIndex()) {
-            this.select.setSelectedIndex(idx)
-          }
-        }
-      },
-      onMouseScroll: (event) => {
-        if (!event.scroll || !this.select) return
-        
-        // Throttle: some terminals fire multiple events per tick
-        const now = Date.now()
-        if (now - this.lastScrollTime < 50) return
-        this.lastScrollTime = now
-        
-        const current = this.select.getSelectedIndex()
-        if (event.scroll.direction === "up" && current > 0) {
-          this.select.setSelectedIndex(current - 1)
-        } else if (event.scroll.direction === "down" && current < this.items.length - 1) {
-          this.select.setSelectedIndex(current + 1)
-        }
-      },
-      onMouseDown: (event) => {
-        // Click the item under cursor
-        if (!this.select) return
-        const idx = this.getItemIndexAtY(event.y)
-        if (idx !== null) {
-          this.select.setSelectedIndex(idx)
-          const item = this.items[idx]
-          if (item) this.onSelect(item)
-        }
-      },
     })
 
     const options = this.items.map((item) => ({
@@ -185,6 +147,45 @@ export class MediaList {
       const item = this.items[index]
       if (item && this.showPreview) this.schedulePreviewUpdate(item)
     })
+
+    // Mouse handlers directly on SelectRenderable
+    this.select.onMouseMove = (event) => {
+      // Auto-focus + highlight item under cursor
+      if (!this.select!.isFocused()) {
+        this.select!.focus()
+      }
+      const idx = this.getItemIndexAtY(event.y)
+      if (idx !== null && idx !== this.select!.getSelectedIndex()) {
+        this.select!.setSelectedIndex(idx)
+      }
+    }
+
+    this.select.onMouseScroll = (event) => {
+      if (!event.scroll) return
+
+      // Throttle
+      const now = Date.now()
+      if (now - this.lastScrollTime < 50) return
+      this.lastScrollTime = now
+
+      // Scroll viewport and keep highlight under cursor
+      const current = this.select!.getSelectedIndex()
+      if (event.scroll.direction === "up" && current > 0) {
+        this.select!.setSelectedIndex(current - 1)
+      } else if (event.scroll.direction === "down" && current < this.items.length - 1) {
+        this.select!.setSelectedIndex(current + 1)
+      }
+    }
+
+    this.select.onMouseDown = (event) => {
+      // Click item under cursor
+      const idx = this.getItemIndexAtY(event.y)
+      if (idx !== null) {
+        this.select!.setSelectedIndex(idx)
+        const item = this.items[idx]
+        if (item) this.onSelect(item)
+      }
+    }
 
     listPanel.add(this.select)
     row.add(listPanel)
