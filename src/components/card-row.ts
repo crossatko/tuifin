@@ -383,23 +383,26 @@ export class CardRow {
 
   /** Update selection based on cursor position (used after scrolling or mouse move) */
   private updateSelectionFromCursor(cursorX: number, cursorY: number) {
-    const relativeX = cursorX - this.container.x
-    if (relativeX < 0) return // Cursor is before container
+    // When we scroll, we shift ALL cards left by marginLeft
+    // Card N is at: container.x + marginLeft + N * (cardWidth + 1)
+    // So we can directly calculate the real card index from cursor position
+    const visualX = this.container.x + (this.container.marginLeft || 0)
+    const relativeX = cursorX - visualX
     
-    // Each card takes (cardWidth + 1) columns (including gap)
-    const cardIndexInView = Math.floor(relativeX / (this.cardWidth + 1))
-    const cardIndex = cardIndexInView + this.scrollOffset
+    if (relativeX < 0) return // Cursor is before visible content
     
-    debug("card-row", `updateSelectionFromCursor: cursorX=${cursorX}, containerX=${this.container.x}, relativeX=${relativeX}, cardIndexInView=${cardIndexInView}, scrollOffset=${this.scrollOffset}, cardIndex=${cardIndex}, cardsLength=${this.cards.length}`)
+    // Calculate which card (real index, not visible index)
+    const cardIndex = Math.floor(relativeX / (this.cardWidth + 1))
     
-    // Only update if cursor is over a valid card slot in the visible area
-    const visible = this.getVisibleCount()
-    if (cardIndexInView < visible && cardIndex >= 0 && cardIndex < this.cards.length) {
+    debug("card-row", `updateSelectionFromCursor: cursorX=${cursorX}, containerX=${this.container.x}, marginLeft=${this.container.marginLeft || 0}, visualX=${visualX}, relativeX=${relativeX}, cardIndex=${cardIndex}, cardsLength=${this.cards.length}`)
+    
+    // Only update if this is a valid card
+    if (cardIndex >= 0 && cardIndex < this.cards.length) {
       debug("card-row", `Setting selectedIndex to ${cardIndex} (was ${this.selectedIndex})`)
       this.selectedIndex = cardIndex
       this.updateVisuals()
     } else {
-      debug("card-row", `NOT updating selection: cardIndexInView=${cardIndexInView} >= visible=${visible} OR cardIndex=${cardIndex} out of range`)
+      debug("card-row", `NOT updating selection: cardIndex=${cardIndex} out of range [0, ${this.cards.length})`)
     }
   }
 
