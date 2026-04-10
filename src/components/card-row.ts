@@ -69,11 +69,30 @@ export class CardRow {
 
     debug("card-row", `CardRow "${options.id}": ${options.cards.length} cards, cardW=${this.cardWidth}, imgH=${this.imgHeight}`)
 
-    this.container = new BoxRenderable(renderer, {
-      id: options.id,
+    this.container = new BoxRenderable(renderer, {      id: options.id,
       flexDirection: "row",
       gap: 1,
       overflow: "hidden",
+      onMouseMove: (event) => {
+        // Handle scroll wheel for horizontal scrolling
+        if (event.scroll) {
+          if (event.scroll.direction === "up") {
+            // Scroll left
+            if (this.scrollOffset > 0) {
+              this.scrollOffset--
+              this.updateScroll()
+            }
+          } else if (event.scroll.direction === "down") {
+            // Scroll right
+            const visible = this.getVisibleCount()
+            const maxOffset = Math.max(0, this.cards.length - visible)
+            if (this.scrollOffset < maxOffset) {
+              this.scrollOffset++
+              this.updateScroll()
+            }
+          }
+        }
+      },
     })
 
     for (let i = 0; i < this.cards.length; i++) {
@@ -96,6 +115,17 @@ export class CardRow {
       borderStyle: "rounded",
       borderColor: theme.border.muted,
       overflow: "hidden",
+      onMouseDown: (event) => {
+        // Click triggers selection
+        this.onSelect?.(index)
+      },
+      onMouseMove: (event) => {
+        // Hover updates selected index (visual feedback)
+        if (this.selectedIndex !== index) {
+          this.selectedIndex = index
+          this.updateVisuals()
+        }
+      },
     })
 
     // Placeholder for image
