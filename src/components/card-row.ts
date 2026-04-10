@@ -97,13 +97,13 @@ export class CardRow {
         if (now - this.lastScrollTime < 50) return
         this.lastScrollTime = now
         
-        // First: perform the scroll
-        let didScroll = false
+        // Perform the scroll - don't update selection
+        // Selection updates only on mouse move, not on scroll
         if (event.scroll.direction === "up") {
           // Scroll left
           if (this.scrollOffset > 0) {
             this.scrollOffset--
-            didScroll = true
+            this.updateScroll()
           }
         } else if (event.scroll.direction === "down") {
           // Scroll right
@@ -111,15 +111,8 @@ export class CardRow {
           const maxOffset = Math.max(0, this.cards.length - visible)
           if (this.scrollOffset < maxOffset) {
             this.scrollOffset++
-            didScroll = true
+            this.updateScroll()
           }
-        }
-        
-        // Second: Only update selection if we actually scrolled
-        // If we're at the end/start, don't recalculate selection
-        if (didScroll) {
-          this.updateScroll()
-          this.updateSelectionFromCursor(event.x, event.y)
         }
       },
     })
