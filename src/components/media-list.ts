@@ -57,6 +57,8 @@ export class MediaList {
   private onBack: () => void
   private keyHandler: (key: KeyEvent) => void
   private showPreview: boolean
+  /** Throttle scroll events - some terminals fire multiple events per tick */
+  private lastScrollTime = 0
 
   constructor(renderer: RenderContext, options: MediaListOptions) {
     this.renderer = renderer
@@ -125,6 +127,11 @@ export class MediaList {
       onMouseScroll: (event) => {
         // Handle scroll wheel - select item under cursor
         if (!event.scroll || !this.select) return
+        
+        // Throttle: process first event, ignore subsequent ones within 50ms
+        const now = Date.now()
+        if (now - this.lastScrollTime < 50) return
+        this.lastScrollTime = now
         
         // Calculate which item is under the cursor
         const itemHeight = 3 // Approximate rows per item (name + desc + spacing)

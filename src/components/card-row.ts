@@ -59,6 +59,8 @@ export class CardRow {
   private imageCleanups: (() => void)[] = []
   /** Map from card index → image handle for kitty show/hide */
   private imageHandles: Map<number, { showKitty: () => void; hideKitty: () => void }> = new Map()
+  /** Throttle scroll events - some terminals fire multiple events per tick */
+  private lastScrollTime = 0
 
   constructor(renderer: RenderContext, options: CardRowOptions) {
     this.renderer = renderer
@@ -88,6 +90,12 @@ export class CardRow {
       onMouseScroll: (event) => {
         // Handle scroll wheel for horizontal scrolling
         if (!event.scroll) return
+        
+        // Throttle: process first event, ignore subsequent ones within 50ms
+        // (Some terminals fire 3+ events per physical wheel tick)
+        const now = Date.now()
+        if (now - this.lastScrollTime < 50) return
+        this.lastScrollTime = now
         
         // First: perform the scroll
         let didScroll = false
