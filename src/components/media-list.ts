@@ -59,6 +59,9 @@ export class MediaList {
   private showPreview: boolean
   /** Throttle scroll events - some terminals fire multiple events per tick */
   private lastScrollTime = 0
+  /** Track last key + time for gg detection */
+  private lastKeyName = ""
+  private lastKeyTime = 0
 
   constructor(renderer: RenderContext, options: MediaListOptions) {
     this.renderer = renderer
@@ -101,6 +104,27 @@ export class MediaList {
         this.onBack()
       } else if (key.name === "/") {
         this.openSearch()
+      } else if (key.name === "g" && key.shift) {
+        // Shift+G → go to bottom
+        if (this.select && this.items.length > 0) {
+          this.select.setSelectedIndex(this.items.length - 1)
+        }
+      } else if (key.name === "g" && !key.shift) {
+        // gg → go to top (double-tap g within 500ms)
+        const now = Date.now()
+        if (this.lastKeyName === "g" && now - this.lastKeyTime < 500) {
+          if (this.select) {
+            this.select.setSelectedIndex(0)
+          }
+          this.lastKeyName = ""
+          this.lastKeyTime = 0
+        } else {
+          this.lastKeyName = "g"
+          this.lastKeyTime = now
+        }
+      } else {
+        this.lastKeyName = ""
+        this.lastKeyTime = 0
       }
     }
     renderer.keyInput.on("keypress", this.keyHandler)
@@ -303,6 +327,12 @@ export class MediaList {
       this.searchInput = null
     }
     this.select?.focus()
+    // Update preview for the selected item after search closes
+    if (this.select && this.showPreview) {
+      const index = this.select.getSelectedIndex()
+      const item = this.items[index]
+      if (item) this.schedulePreviewUpdate(item)
+    }
   }
 
   private fuzzyScrollTo(query: string) {
@@ -319,8 +349,8 @@ export class MediaList {
 
     if (bestIndex >= 0 && bestScore > 0) {
       this.select.setSelectedIndex(bestIndex)
-      const item = this.items[bestIndex]
-      if (item) this.schedulePreviewUpdate(item)
+      // Don't update preview during search — too many rapid image loads
+      // cause Kitty graphics race conditions. Preview updates on search close.
     }
   }
 
@@ -344,10 +374,12 @@ export class MediaList {
   private schedulePreviewUpdate(item: JellyfinItem) {
     if (this.destroyed) return
     if (this.previewDebounceTimer) clearTimeout(this.previewDebounceTimer)
+    // Use longer debounce during search to prevent Kitty image race conditions
+    const delay = this.searching ? 500 : 150
     this.previewDebounceTimer = setTimeout(() => {
       this.previewDebounceTimer = null
       this.updatePreview(item)
-    }, 30)
+    }, delay)
   }
 
   private async updatePreview(item: JellyfinItem) {

@@ -102,10 +102,14 @@ export function startMpv(
   const startPolling = () => {
     pollTimer = setInterval(async () => {
       try {
-        const playlistPos = await ipcGet(ipcSocket, "playlist-pos")
-        const timePos = await ipcGet(ipcSocket, "time-pos")
-        const duration = await ipcGet(ipcSocket, "duration")
-        const paused = await ipcGetBool(ipcSocket, "pause")
+        const props = await ipcGetProperties(ipcSocket, [
+          "playlist-pos", "time-pos", "duration", "pause"
+        ])
+        
+        const playlistPos = props.has("playlist-pos") ? Number(props.get("playlist-pos")) : null
+        const timePos = props.has("time-pos") ? Number(props.get("time-pos")) : null
+        const duration = props.has("duration") ? Number(props.get("duration")) : null
+        const paused = props.has("pause") ? Boolean(props.get("pause")) : null
 
         // Update pause state in status bar
         if (paused != null) {
@@ -179,7 +183,8 @@ export function startMpv(
 
     // Try one last read for current episode
     try {
-      const pos = await ipcGet(ipcSocket, "time-pos")
+      const props = await ipcGetProperties(ipcSocket, ["time-pos"])
+      const pos = props.has("time-pos") ? Number(props.get("time-pos")) : null
       if (pos != null) lastPosition = pos
     } catch {}
 
@@ -193,6 +198,14 @@ export function startMpv(
       if (lastEpisode.RunTimeTicks && lastTicks / lastEpisode.RunTimeTicks > 0.9) {
         completedEpisodes.add(lastEpisode.Id)
         debug("mpv", `Final episode marked complete`)
+      } else if (lastTicks > 0) {
+        // Report partial progress to server immediately
+        debug("mpv", `Reporting partial progress for last episode: ${lastTicks} ticks`)
+        try {
+          await client.reportPlaybackStopped(lastEpisode.Id, lastTicks)
+        } catch (err) {
+          debug("mpv", `Failed to report progress: ${err}`)
+        }
       }
     }
 
@@ -209,67 +222,58 @@ export function startMpv(
 }
 
 /**
- * Query a property from mpv's IPC socket.
+ * Query multiple properties from mpv's IPC socket in a single connection.
  */
-async function ipcGet(socketPath: string, property: string): Promise<number | null> {
+async function ipcGetProperties(socketPath: string, properties: string[]): Promise<Map<string, any>> {
   const { connect } = await import("node:net")
   return new Promise((resolve) => {
+    const results = new Map<string, any>()
+    let pending = properties.length
+    let requestId = 1
+    const idToProperty = new Map<number, string>()
+
     const timeout = setTimeout(() => {
       socket.destroy()
-      resolve(null)
-    }, 500)
+      resolve(results)
+    }, 800)
 
     const socket = connect(socketPath, () => {
-      socket.write(JSON.stringify({ command: ["get_property", property] }) + "\n")
+      for (const prop of properties) {
+        const id = requestId++
+        idToProperty.set(id, prop)
+        socket.write(JSON.stringify({ command: ["get_property", prop], request_id: id }) + "\n")
+      }
     })
 
-    let data = ""
+    let buffer = ""
     socket.on("data", (chunk) => {
-      data += chunk.toString()
-      try {
-        const resp = JSON.parse(data)
-        clearTimeout(timeout)
-        socket.destroy()
-        resolve(typeof resp.data === "number" ? resp.data : null)
-      } catch {}
+      buffer += chunk.toString()
+      // mpv sends one JSON object per line
+      const lines = buffer.split("\n")
+      buffer = lines.pop() ?? "" // Keep incomplete line in buffer
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const resp = JSON.parse(line)
+          // Skip events (they don't have request_id)
+          if (resp.event) continue
+          const prop = idToProperty.get(resp.request_id)
+          if (prop && resp.error === "success") {
+            results.set(prop, resp.data)
+          }
+          pending--
+          if (pending <= 0) {
+            clearTimeout(timeout)
+            socket.destroy()
+            resolve(results)
+          }
+        } catch {}
+      }
     })
 
     socket.on("error", () => {
       clearTimeout(timeout)
-      resolve(null)
-    })
-  })
-}
-
-/**
- * Query a boolean property from mpv's IPC socket.
- */
-async function ipcGetBool(socketPath: string, property: string): Promise<boolean | null> {
-  const { connect } = await import("node:net")
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      socket.destroy()
-      resolve(null)
-    }, 500)
-
-    const socket = connect(socketPath, () => {
-      socket.write(JSON.stringify({ command: ["get_property", property] }) + "\n")
-    })
-
-    let data = ""
-    socket.on("data", (chunk) => {
-      data += chunk.toString()
-      try {
-        const resp = JSON.parse(data)
-        clearTimeout(timeout)
-        socket.destroy()
-        resolve(typeof resp.data === "boolean" ? resp.data : null)
-      } catch {}
-    })
-
-    socket.on("error", () => {
-      clearTimeout(timeout)
-      resolve(null)
+      resolve(results)
     })
   })
 }

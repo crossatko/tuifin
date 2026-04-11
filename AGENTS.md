@@ -131,3 +131,11 @@ Use Jellyfin's REST API. Key endpoints:
 2. Update `TODOS.md` with next steps
 3. Commit code with clear message referencing the feature/task
 4. if feature is complete, squash commits into one with a clear message referencing the feature/task and merge to dev branch and checkout to it
+
+### After every code change
+
+**Always compile and install the binary** so the user can test immediately:
+```bash
+cd /home/kreejzak/code/crossatko/jellytui && bun build src/index.ts --compile --outfile jellytui && rm -f ~/.bun/bin/jellytui && cp jellytui ~/.bun/bin/jellytui
+```
+This ensures `jellytui` command always runs the latest version.

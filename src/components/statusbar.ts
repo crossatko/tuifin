@@ -1,5 +1,6 @@
-// Status bar — shows while mpv is playing
-// Displays item title, progress, and controls hint
+// Status bar — persistent at bottom of screen
+// Idle: dark background, muted text
+// Active: accent background, playback info
 
 import {
   BoxRenderable,
@@ -8,54 +9,89 @@ import {
   type RenderContext,
 } from "@opentui/core"
 import { theme } from "../utils/theme"
+import { strings } from "../utils/strings"
 
 export class PlaybackStatusBar {
   private renderer: RenderContext
   private container: BoxRenderable
   private titleText: TextRenderable
   private progressText: TextRenderable
-  private timeText: TextRenderable
+  private hintText: TextRenderable
   private isPaused = false
+  private active = false
 
-  constructor(renderer: RenderContext, title: string) {
+  constructor(renderer: RenderContext) {
     this.renderer = renderer
 
     this.container = new BoxRenderable(renderer, {
       id: "playback-statusbar",
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      width: "100%",
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       paddingX: 2,
       height: 1,
-      backgroundColor: theme.accent,
+      backgroundColor: theme.bg.surface,
     })
 
     this.titleText = new TextRenderable(renderer, {
       id: "playback-title",
-      content: `▶  ${title}`,
-      fg: theme.bg.base,
-      attributes: TextAttributes.BOLD,
+      content: strings.statusBar.notPlaying,
+      fg: theme.text.muted,
+      attributes: TextAttributes.DIM,
     })
 
     this.progressText = new TextRenderable(renderer, {
       id: "playback-progress",
       content: "",
-      fg: theme.bg.base,
+      fg: theme.text.muted,
     })
 
-    this.timeText = new TextRenderable(renderer, {
-      id: "playback-time",
-      content: "q: close mpv",
-      fg: theme.bg.base,
+    this.hintText = new TextRenderable(renderer, {
+      id: "playback-hint",
+      content: strings.statusBar.idleHint,
+      fg: theme.text.muted,
       attributes: TextAttributes.DIM,
     })
 
     this.container.add(this.titleText)
     this.container.add(this.progressText)
-    this.container.add(this.timeText)
+    this.container.add(this.hintText)
+  }
+
+  /** Switch to active playback mode */
+  activate(title: string) {
+    this.active = true
+    this.isPaused = false
+    this.container.backgroundColor = theme.accent
+    this.titleText.content = `▶  ${title}`
+    this.titleText.fg = theme.bg.base
+    this.titleText.attributes = TextAttributes.BOLD
+    this.progressText.content = ""
+    this.progressText.fg = theme.bg.base
+    this.hintText.content = strings.statusBar.activeHint
+    this.hintText.fg = theme.bg.base
+  }
+
+  /** Switch back to idle mode */
+  deactivate() {
+    this.active = false
+    this.isPaused = false
+    this.container.backgroundColor = theme.bg.surface
+    this.titleText.content = strings.statusBar.notPlaying
+    this.titleText.fg = theme.text.muted
+    this.titleText.attributes = TextAttributes.DIM
+    this.progressText.content = ""
+    this.progressText.fg = theme.text.muted
+    this.hintText.content = strings.statusBar.idleHint
+    this.hintText.fg = theme.text.muted
   }
 
   update(positionSecs: number, durationSecs: number) {
+    if (!this.active) return
     if (durationSecs > 0) {
       const pct = Math.round((positionSecs / durationSecs) * 100)
       const pos = formatTime(positionSecs)
@@ -68,15 +104,16 @@ export class PlaybackStatusBar {
   }
 
   updateTitle(title: string) {
+    if (!this.active) return
     const icon = this.isPaused ? "⏸" : "▶"
     this.titleText.content = `${icon}  ${title}`
   }
 
   updatePauseState(paused: boolean) {
+    if (!this.active) return
     if (this.isPaused !== paused) {
       this.isPaused = paused
       const icon = paused ? "⏸" : "▶"
-      // Update icon while preserving the title text
       const currentTitle = this.titleText.content.replace(/^[▶⏸]\s+/, "")
       this.titleText.content = `${icon}  ${currentTitle}`
     }

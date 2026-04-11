@@ -45,6 +45,7 @@ export class DetailScreen {
       width: "100%",
       height: "100%",
       flexDirection: "column",
+      paddingBottom: 1,
     })
 
     // For playable items, play immediately
@@ -93,13 +94,6 @@ export class DetailScreen {
     }))
     this.container.add(loadingBox)
 
-    // Hint
-    this.container.add(new TextRenderable(renderer, {
-      id: "detail-hint",
-      content: strings.detail.hint,
-      attributes: TextAttributes.DIM,
-      fg: theme.text.muted,
-    }))
 
     // Back handler before MediaList loads
     this.keyHandler = (key: KeyEvent) => {
@@ -182,7 +176,7 @@ export class DetailScreen {
     })
 
     contentBox.add(this.mediaList.getRenderable())
-    this.container.add(contentBox, 1) // insert after header, before hint
+    this.container.add(contentBox, 1) // insert after header
   }
 
   private isPlayable(item: JellyfinItem): boolean {
