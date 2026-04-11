@@ -12,7 +12,7 @@ export function initDebug(args: string[]) {
   enabled = args.includes("--debug")
   if (enabled) {
     mkdirSync(LOG_DIR, { recursive: true })
-    writeFileSync(LOG_FILE, `--- JellyTUI debug log started at ${new Date().toISOString()} ---\n`)
+    writeFileSync(LOG_FILE, `--- tuifin debug log started at ${new Date().toISOString()} ---\n`)
     debug("logger", "Debug logging enabled")
   }
 }

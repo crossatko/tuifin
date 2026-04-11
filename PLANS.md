@@ -1,4 +1,4 @@
-# JellyTUI — Roadmap
+# tuifin — Roadmap
 
 ## Phase 1: Foundation
 

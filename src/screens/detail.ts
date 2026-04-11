@@ -99,7 +99,7 @@ export class DetailScreen {
     this.keyHandler = (key: KeyEvent) => {
       if (!this.mediaList && (key.name === "escape" || key.name === "backspace")) {
         this.onAction({ type: "back" })
-      } else if (key.name === "r") {
+      } else if (key.name === "r" && !this.mediaList?.isSearching) {
         this.refresh()
       }
     }
@@ -115,6 +115,17 @@ export class DetailScreen {
       if (this.item.Type === "Series") {
         children = await this.client.getSeasons(this.item.Id)
         debug("detail", `Loaded ${children.length} seasons`)
+        // Fetch episode counts per season for accurate display
+        await Promise.all(children.map(async (season) => {
+          try {
+            const episodes = await this.client.getEpisodes(this.item.Id, season.Id)
+            season.ChildCount = episodes.length
+            // Inherit series rating if season has none
+            if (!season.CommunityRating && this.item.CommunityRating) {
+              season.CommunityRating = this.item.CommunityRating
+            }
+          } catch {}
+        }))
       } else if (this.item.Type === "Season") {
         const seriesId = this.item.SeriesId ?? this.item.Id
         children = await this.client.getEpisodes(seriesId, this.item.Id)
@@ -160,8 +171,18 @@ export class DetailScreen {
       formatDesc: (item) => {
         const parts: string[] = []
         if (item.CommunityRating) parts.push(strings.common.rating(item.CommunityRating))
+        if (item.Type === "Season" && item.ChildCount) {
+          parts.push(strings.detail.episodeCount(item.ChildCount))
+        }
         if (item.RunTimeTicks) parts.push(strings.detail.runtime(Math.round(item.RunTimeTicks / 600000000)))
         if (item.UserData?.Played) parts.push(strings.common.played)
+        else if (item.Type === "Season" && item.ChildCount && item.UserData?.UnplayedItemCount != null) {
+          const total = item.ChildCount
+          const unwatched = item.UserData.UnplayedItemCount
+          const watched = total - unwatched
+          if (unwatched === 0) parts.push(strings.common.played)
+          else if (watched > 0) parts.push(strings.detail.watchedOf(watched, total))
+        }
         else if (item.UserData?.PlayedPercentage) parts.push(strings.common.watched(item.UserData.PlayedPercentage))
         return parts.join(" · ")
       },

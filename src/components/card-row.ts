@@ -18,6 +18,8 @@ import { createImageRenderable, type ImageHandle } from "./image"
 export interface CardData {
   id: string
   title: string
+  /** Right-aligned text on the title row */
+  titleRight?: string
   subtitle?: string
   /** Third line, e.g. series name */
   subtitle2?: string
@@ -170,16 +172,41 @@ export class CardRow {
     const subColor = theme.text.muted
 
     // Title — 1 row (always shown)
-    const titleText = new TextRenderable(this.renderer, {
-      id: `${this.container.id}-card-${index}-title`,
-      content: card.title,
-      fg: titleColor,
-      attributes: TextAttributes.BOLD,
-      width: labelWidth,
-      height: 1,
-      truncate: true,
-    })
-    box.add(titleText)
+    if (card.titleRight) {
+      const titleRow = new BoxRenderable(this.renderer, {
+        id: `${this.container.id}-card-${index}-title-row`,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        width: labelWidth,
+        height: 1,
+        overflow: "hidden",
+      })
+      titleRow.add(new TextRenderable(this.renderer, {
+        id: `${this.container.id}-card-${index}-title`,
+        content: card.title,
+        fg: titleColor,
+        attributes: TextAttributes.BOLD,
+        truncate: true,
+      }))
+      titleRow.add(new TextRenderable(this.renderer, {
+        id: `${this.container.id}-card-${index}-title-right`,
+        content: card.titleRight,
+        fg: subColor,
+        flexShrink: 0,
+      }))
+      box.add(titleRow)
+    } else {
+      const titleText = new TextRenderable(this.renderer, {
+        id: `${this.container.id}-card-${index}-title`,
+        content: card.title,
+        fg: titleColor,
+        attributes: TextAttributes.BOLD,
+        width: labelWidth,
+        height: 1,
+        truncate: true,
+      })
+      box.add(titleText)
+    }
 
     // Subtitle — 1 row (if textRows >= 2)
     if (this.textRows >= 2) {

@@ -1,6 +1,6 @@
-# JellyTUI — Agent Instructions
+# tuifin — Agent Instructions
 
-## What is JellyTUI?
+## What is tuifin?
 
 A terminal UI frontend for [Jellyfin](https://jellyfin.org/) media server. Browse libraries, view media details with poster images, and play video in mpv — all from the terminal.
 
@@ -138,7 +138,7 @@ Use Jellyfin's REST API. Key endpoints:
 **Always compile and install the binary** so the user can test immediately:
 
 ```bash
-cd /home/kreejzak/code/crossatko/jellytui && bun build src/index.ts --compile --outfile jellytui && rm -f ~/.bun/bin/jellytui && cp jellytui ~/.bun/bin/jellytui
+cd /home/kreejzak/code/crossatko/tuifin && bun build src/index.ts --compile --outfile tuifin && rm -f ~/.bun/bin/tuifin && cp tuifin ~/.bun/bin/tuifin
 ```
 
-This ensures `jellytui` command always runs the latest version.
+This ensures `tuifin` command always runs the latest version.

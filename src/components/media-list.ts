@@ -33,7 +33,7 @@ export interface MediaListOptions {
 }
 
 const PREVIEW_WIDTH = 32
-const POSTER_HEIGHT = 18  // For portrait posters (series, seasons, movies)
+const POSTER_HEIGHT = 19  // For portrait posters (series, seasons, movies)
 const EPISODE_THUMBNAIL_HEIGHT = 7  // For 16:9 episode thumbnails
 const MIN_WIDTH_FOR_PREVIEW = 80
 
@@ -43,12 +43,14 @@ export class MediaList {
   private select: SelectRenderable | null = null
   private previewBox: BoxRenderable | null = null
   private previewImageCleanup: (() => void) | null = null
+  private previewImageHide: (() => void) | null = null
+  private previewImageShow: (() => void) | null = null
   private previewGeneration = 0
   private previewDebounceTimer: ReturnType<typeof setTimeout> | null = null
   private destroyed = false
   private searchBar: BoxRenderable | null = null
   private searchInput: InputRenderable | null = null
-  private searching = false
+  private _searching = false
   private items: JellyfinItem[]
   private client: JellyfinClient
   private formatName: (item: JellyfinItem) => string
@@ -56,7 +58,9 @@ export class MediaList {
   private onSelect: (item: JellyfinItem) => void
   private onBack: () => void
   private keyHandler: (key: KeyEvent) => void
+  private resizeHandler: (width: number, height: number) => void
   private showPreview: boolean
+  private row: BoxRenderable
   /** Throttle scroll events - some terminals fire multiple events per tick */
   private lastScrollTime = 0
   /** Track last key + time for gg detection */
@@ -85,21 +89,21 @@ export class MediaList {
     })
 
     // Inner row: list + preview side by side
-    const row = new BoxRenderable(renderer, {
+    this.row = new BoxRenderable(renderer, {
       id: `${options.id}-medialist-row`,
       flexDirection: "row",
       flexGrow: 1,
       gap: 2,
       overflow: "hidden",
     })
-    this.container.add(row)
+    this.container.add(this.row)
 
-    this.buildList(options.id, row)
-    if (this.showPreview) this.buildPreview(row)
+    this.buildList(options.id, this.row)
+    if (this.showPreview) this.buildPreview(this.row)
 
     // Keyboard handler
     this.keyHandler = (key: KeyEvent) => {
-      if (this.searching) return
+      if (this._searching) return
       if (key.name === "escape" || key.name === "backspace") {
         this.onBack()
       } else if (key.name === "/") {
@@ -128,6 +132,22 @@ export class MediaList {
       }
     }
     renderer.keyInput.on("keypress", this.keyHandler)
+
+    // Resize handler — toggle preview panel on live resize
+    this.resizeHandler = (width: number, _height: number) => {
+      const shouldShow = width >= MIN_WIDTH_FOR_PREVIEW
+      if (shouldShow && !this.showPreview) {
+        this.showPreview = true
+        this.buildPreview(this.row)
+        const index = this.select?.getSelectedIndex() ?? 0
+        const item = this.items[index]
+        if (item) this.schedulePreviewUpdate(item)
+      } else if (!shouldShow && this.showPreview) {
+        this.showPreview = false
+        this.removePreview()
+      }
+    }
+    ;(renderer as CliRenderer).on("resize", this.resizeHandler)
 
     // Focus list and show first preview
     this.select?.focus()
@@ -160,6 +180,7 @@ export class MediaList {
       selectedTextColor: theme.accent,
       focusedBackgroundColor: RGBA.fromValues(0, 0, 0, 0),
       focusedTextColor: theme.text.primary,
+      itemSpacing: 1,
     })
 
     this.select.on(SelectRenderableEvents.ITEM_SELECTED, (index) => {
@@ -244,27 +265,46 @@ export class MediaList {
   }
 
   private buildPreview(row: BoxRenderable) {
+    // Vertical line separator
+    const separator = new BoxRenderable(this.renderer, {
+      id: "medialist-preview-sep",
+      width: 1,
+      height: "100%",
+      backgroundColor: theme.border.muted,
+    })
+    row.add(separator)
+
     this.previewBox = new BoxRenderable(this.renderer, {
       id: "medialist-preview",
       flexDirection: "column",
       width: PREVIEW_WIDTH,
-      border: true,
-      borderStyle: "rounded",
-      borderColor: theme.border.muted,
       paddingX: 1,
-      paddingTop: 0,
-      paddingBottom: 1,
       gap: 1,
       overflow: "hidden",
     })
     row.add(this.previewBox)
   }
 
+  private removePreview() {
+    if (this.previewImageCleanup) {
+      this.previewImageCleanup()
+      this.previewImageCleanup = null
+      this.previewImageHide = null
+      this.previewImageShow = null
+    }
+    try { this.row.remove("medialist-preview-sep") } catch {}
+    if (this.previewBox) {
+      this.row.remove("medialist-preview")
+      this.previewBox.destroy()
+      this.previewBox = null
+    }
+  }
+
   // --- Search ---
 
   private openSearch() {
-    if (!this.select || this.searching) return
-    this.searching = true
+    if (!this.select || this._searching) return
+    this._searching = true
 
     this.searchBar = new BoxRenderable(this.renderer, {
       id: "medialist-search-bar",
@@ -306,6 +346,9 @@ export class MediaList {
       if (key.name === "escape") {
         this.closeSearch()
         this.renderer.keyInput.off("keypress", escHandler)
+      } else if (key.name === "up" || key.name === "down") {
+        this.closeSearch()
+        this.renderer.keyInput.off("keypress", escHandler)
       }
     }
     this.renderer.keyInput.on("keypress", escHandler)
@@ -318,8 +361,8 @@ export class MediaList {
   }
 
   private closeSearch() {
-    if (!this.searching) return
-    this.searching = false
+    if (!this._searching) return
+    this._searching = false
     if (this.searchBar) {
       this.container.remove("medialist-search-bar")
       this.searchBar.destroy()
@@ -375,7 +418,7 @@ export class MediaList {
     if (this.destroyed) return
     if (this.previewDebounceTimer) clearTimeout(this.previewDebounceTimer)
     // Use longer debounce during search to prevent Kitty image race conditions
-    const delay = this.searching ? 500 : 150
+    const delay = this._searching ? 500 : 150
     this.previewDebounceTimer = setTimeout(() => {
       this.previewDebounceTimer = null
       this.updatePreview(item)
@@ -389,14 +432,16 @@ export class MediaList {
     if (this.previewImageCleanup) {
       this.previewImageCleanup()
       this.previewImageCleanup = null
+      this.previewImageHide = null
+      this.previewImageShow = null
     }
 
     for (const id of ["mp-poster", "mp-title", "mp-meta", "mp-status", "mp-overview"]) {
       try { this.previewBox.remove(id) } catch {}
     }
 
-    const contentWidth = PREVIEW_WIDTH - 4
-    const posterWidth = contentWidth + 2
+    const contentWidth = PREVIEW_WIDTH - 2  // minus paddingX
+    const posterWidth = contentWidth + 2  // slightly wider to fully cover half-block
 
     // Use 16:9 aspect for episode thumbnails, portrait for others
     const imageHeight = item.Type === "Episode" ? EPISODE_THUMBNAIL_HEIGHT : POSTER_HEIGHT
@@ -408,15 +453,16 @@ export class MediaList {
     if (imageItemId) {
       const imageUrl = this.client.getImageUrl(imageItemId, "Primary", posterWidth * 8)
       try {
-        const { renderable, cleanup, showKitty } = await createImageRenderable(this.renderer, {
+        const { renderable, cleanup, showKitty, hideKitty } = await createImageRenderable(this.renderer, {
           id: "mp-poster",
           url: imageUrl,
           width: posterWidth,
           height: imageHeight,
-          placementOffset: { x: 1, y: 1 },
         })
         if (generation !== this.previewGeneration) { cleanup(); return }
         this.previewImageCleanup = cleanup
+        this.previewImageHide = hideKitty
+        this.previewImageShow = showKitty
         if (this.previewBox) { this.previewBox.add(renderable, 0); showKitty() }
       } catch {}
     }
@@ -483,8 +529,8 @@ export class MediaList {
     const relativeY = screenY - this.select.y
     if (relativeY < 0) return null
     
-    // SelectRenderable uses linesPerItem=2 (name + description) by default
-    const linesPerItem = 2
+    // SelectRenderable uses linesPerItem=2 (name + description) + itemSpacing=1
+    const linesPerItem = 3
     const visibleSlot = Math.floor(relativeY / linesPerItem)
     const scrollOff = (this.select as any).scrollOffset ?? 0
     const itemIndex = scrollOff + visibleSlot
@@ -493,6 +539,10 @@ export class MediaList {
       return itemIndex
     }
     return null
+  }
+
+  get isSearching(): boolean {
+    return this._searching
   }
 
   getRenderable(): BoxRenderable {
@@ -509,10 +559,13 @@ export class MediaList {
     if (this.previewImageCleanup) {
       this.previewImageCleanup()
       this.previewImageCleanup = null
+      this.previewImageHide = null
+      this.previewImageShow = null
     }
     // Blur the select to stop its internal key handler from firing events
     this.select?.blur()
     this.renderer.keyInput.off("keypress", this.keyHandler)
+    ;(this.renderer as CliRenderer).off("resize", this.resizeHandler)
     this.container.destroy()
   }
 }

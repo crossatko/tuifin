@@ -1,4 +1,4 @@
-// JellyTUI — Main entry point
+// tuifin — Main entry point
 
 import { createCliRenderer, type CliRenderer } from "@opentui/core"
 import { JellyfinClient, type JellyfinItem } from "./api/jellyfin"
@@ -15,7 +15,7 @@ import { cleanupAllImages } from "./components/image"
 // Init debug before anything else
 initDebug(process.argv)
 
-debug("main", "Starting JellyTUI", { args: process.argv.slice(2) })
+debug("main", "Starting tuifin", { args: process.argv.slice(2) })
 
 const renderer = await createCliRenderer({
   exitOnCtrlC: true,

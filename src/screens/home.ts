@@ -227,6 +227,7 @@ export class HomeScreen {
     const cards: CardData[] = items.map((item) => ({
       id: item.Id,
       title: this.formatItemTitle(item),
+      titleRight: this.formatItemTitleRight(item),
       subtitle: this.formatItemSubtitle(item),
       subtitle2: this.formatItemSubtitle2(item),
       highlightTitle: item.Type === "Episode",
@@ -276,6 +277,22 @@ export class HomeScreen {
       return `${season}${ep}`
     }
     return item.Name
+  }
+
+  private formatItemTitleRight(item: JellyfinItem): string | undefined {
+    if (item.UserData?.PlaybackPositionTicks) {
+      return this.formatTicks(item.UserData.PlaybackPositionTicks)
+    }
+    return undefined
+  }
+
+  private formatTicks(ticks: number): string {
+    const totalSecs = Math.floor(ticks / 10000000)
+    const s = totalSecs % 60
+    const m = Math.floor(totalSecs / 60) % 60
+    const h = Math.floor(totalSecs / 3600)
+    if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    return `${m}:${String(s).padStart(2, "0")}`
   }
 
   private formatItemSubtitle(item: JellyfinItem): string {

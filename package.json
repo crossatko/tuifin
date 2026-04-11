@@ -1,13 +1,13 @@
 {
-  "name": "jellytui",
+  "name": "tuifin",
   "module": "src/index.ts",
   "type": "module",
   "private": true,
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun run --watch src/index.ts",
-    "build": "bun build src/index.ts --compile --outfile jellytui",
-    "install-bin": "bun run build && cp jellytui ~/.bun/bin/jellytui"
+    "build": "bun build src/index.ts --compile --outfile tuifin",
+    "install-bin": "bun run build && cp tuifin ~/.bun/bin/tuifin"
   },
   "devDependencies": {
     "@types/bun": "latest"

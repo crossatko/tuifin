@@ -81,14 +81,18 @@ export async function createImageRenderable(
   }
 
   // Render half-block version (always)
+  // Half-block chars give 1px/col and 2px/row. Buffer must be width*2 x height*2
+  // for drawSuperSampleBuffer, but crop aspect must match real cell dimensions.
   try {
+    const cell = getCellPixelSize(renderer)
     const pixelW = width * 2
     const pixelH = height * 2
-    const rgba = await convertImage(imageBytes, pixelW, pixelH, "rgba", true)
+    const rgba = await convertImage(imageBytes, pixelW, pixelH, "rgba", true,
+      { w: width * cell.w, h: height * cell.h })
     const bytesPerRow = pixelW * 4
     const dataPtr = ptr(rgba)
     fb.frameBuffer.drawSuperSampleBuffer(0, 0, dataPtr, rgba.byteLength, "rgba8unorm", bytesPerRow)
-    debug("image", `Half-block rendered: ${id}`)
+    debug("image", `Half-block rendered: ${id} (${pixelW}x${pixelH}, crop ${width * cell.w}x${height * cell.h})`)
   } catch (err) {
     debug("image", `Half-block failed: ${err}`, { id })
     renderFBPlaceholder(fb, width, height)
@@ -100,7 +104,7 @@ export async function createImageRenderable(
       const cell = getCellPixelSize(renderer)
       const pixelW = width * cell.w
       const pixelH = height * cell.h
-      const pngData = await convertImage(imageBytes, pixelW, pixelH, "png", false)
+      const pngData = await convertImage(imageBytes, pixelW, pixelH, "png", true)
       kittyId = uploadImage(pngData)
       activeKittyImages.set(id, kittyId)
       debug("image", `Kitty uploaded: id=${kittyId}`)
@@ -111,9 +115,10 @@ export async function createImageRenderable(
 
   const offsetX = options.placementOffset?.x ?? 0
   const offsetY = options.placementOffset?.y ?? 0
+  let cleaned = false
 
   const showKitty = () => {
-    if (kittyId == null) return
+    if (kittyId == null || cleaned) return
     const pos = getAbsolutePosition(fb)
     if (pos) {
       placeImage(kittyId, pos.x + offsetX, pos.y + offsetY, width, height)
@@ -127,15 +132,35 @@ export async function createImageRenderable(
     kittyVisible = false
   }
 
+  // Reposition kitty image on terminal resize
+  const resizeHandler = () => {
+    if (kittyId == null || !kittyVisible || cleaned) return
+    // Hide immediately to prevent stale position
+    deleteImage(kittyId)
+    // Delay to let layout settle after resize, then re-place
+    setTimeout(() => {
+      if (cleaned || !kittyVisible) return
+      showKitty()
+    }, 100)
+  }
+  try {
+    ;(renderer as any).on("resize", resizeHandler)
+  } catch {}
+
   // Don't auto-place — caller manages show/hide via the returned handle
 
   return {
     renderable: fb,
     cleanup: () => {
+      cleaned = true
+      kittyVisible = false
       if (kittyId != null) {
         deleteImage(kittyId)
         activeKittyImages.delete(id)
       }
+      try {
+        ;(renderer as any).off("resize", resizeHandler)
+      } catch {}
     },
     showKitty,
     hideKitty,
@@ -150,6 +175,8 @@ async function convertImage(
   targetH: number,
   format: "png" | "rgba",
   fill: boolean = false,
+  /** Optional: visual aspect ratio for fill crop (e.g. real pixel dimensions) */
+  cropAspect?: { w: number; h: number },
 ): Promise<Uint8Array> {
   const ts = Date.now()
   const rand = Math.random().toString(36).slice(2, 8)
@@ -162,13 +189,19 @@ async function convertImage(
 
   try {
     const resizeArgs = fill
-      ? ["-resize", `${targetW}x${targetH}^`,  // fill: scale to cover, may exceed
-         "-gravity", "center",
-         "-extent", `${targetW}x${targetH}`]      // then crop to exact size
-      : ["-resize", `${targetW}x${targetH}`,     // fit: scale to fit within
+      ? cropAspect
+        // Two-step fill: first crop to visual aspect, then resize to buffer dimensions
+        ? ["-resize", `${cropAspect.w}x${cropAspect.h}^`,
+           "-gravity", "center",
+           "-extent", `${cropAspect.w}x${cropAspect.h}`,
+           "-resize", `${targetW}x${targetH}!`]   // stretch to buffer dims
+        : ["-resize", `${targetW}x${targetH}^`,
+           "-gravity", "center",
+           "-extent", `${targetW}x${targetH}`]
+      : ["-resize", `${targetW}x${targetH}`,
          "-gravity", "center",
          "-background", LETTERBOX_BG,
-         "-extent", `${targetW}x${targetH}`]      // pad to exact size
+         "-extent", `${targetW}x${targetH}`]
 
     const proc = Bun.spawn([
       "magick", tmpIn,

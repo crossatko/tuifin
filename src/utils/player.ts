@@ -1,9 +1,10 @@
-// mpv playback — runs mpv with playlist support, polls IPC for progress
+// mpv playback — persistent IPC connection with observe_property for realtime updates
 
 import { debug } from "../utils/debug"
 import { JellyfinClient, type JellyfinItem } from "../api/jellyfin"
 import type { PlaybackStatusBar } from "../components/statusbar"
 import { writeFileSync } from "fs"
+import { connect, type Socket } from "node:net"
 
 export interface PlaybackResult {
   /** Progress for each episode that was played: itemId -> positionTicks */
@@ -17,6 +18,113 @@ export interface PlaybackSession {
   wait: () => Promise<PlaybackResult>
   /** Kill mpv */
   stop: () => void
+}
+
+/**
+ * Persistent IPC connection to mpv.
+ * Uses observe_property for push-based updates instead of polling.
+ */
+class MpvIPC {
+  private socketPath: string
+  private socket: Socket | null = null
+  private buffer = ""
+  private requestId = 1
+  private connected = false
+  private destroyed = false
+  private onProperty: (name: string, value: any) => void
+
+  // observe_property uses IDs 1000+ to avoid collisions with request IDs
+  private observeIds = new Map<number, string>()
+
+  constructor(socketPath: string, onProperty: (name: string, value: any) => void) {
+    this.socketPath = socketPath
+    this.onProperty = onProperty
+  }
+
+  connect(): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (this.destroyed) return resolve(false)
+
+      const timeout = setTimeout(() => {
+        debug("mpv-ipc", "Connection timeout")
+        resolve(false)
+      }, 3000)
+
+      this.socket = connect(this.socketPath, () => {
+        clearTimeout(timeout)
+        this.connected = true
+        debug("mpv-ipc", "Connected to mpv IPC")
+
+        // Observe properties for realtime push updates
+        this.observeProperty("time-pos", 1001)
+        this.observeProperty("duration", 1002)
+        this.observeProperty("pause", 1003)
+        this.observeProperty("playlist-pos", 1004)
+
+        resolve(true)
+      })
+
+      this.socket.on("data", (chunk) => {
+        this.buffer += chunk.toString()
+        const lines = this.buffer.split("\n")
+        this.buffer = lines.pop() ?? ""
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const msg = JSON.parse(line)
+            this.handleMessage(msg)
+          } catch {}
+        }
+      })
+
+      this.socket.on("error", (err) => {
+        clearTimeout(timeout)
+        debug("mpv-ipc", `Socket error: ${err.message}`)
+        this.connected = false
+        resolve(false)
+      })
+
+      this.socket.on("close", () => {
+        this.connected = false
+        debug("mpv-ipc", "Socket closed")
+      })
+    })
+  }
+
+  private observeProperty(name: string, id: number) {
+    this.observeIds.set(id, name)
+    this.send({ command: ["observe_property", id, name] })
+  }
+
+  private send(msg: any) {
+    if (this.socket && this.connected) {
+      this.socket.write(JSON.stringify(msg) + "\n")
+    }
+  }
+
+  private handleMessage(msg: any) {
+    // Property change event from observe_property
+    if (msg.event === "property-change") {
+      const name = msg.name as string
+      const value = msg.data
+      if (name && value !== undefined) {
+        this.onProperty(name, value)
+      }
+      return
+    }
+
+    // Skip other events
+    if (msg.event) return
+  }
+
+  destroy() {
+    this.destroyed = true
+    if (this.socket) {
+      this.socket.destroy()
+      this.socket = null
+    }
+    this.connected = false
+  }
 }
 
 /**
@@ -34,8 +142,8 @@ export function startMpv(
     throw new Error("No episodes to play")
   }
 
-  const ipcSocket = `/tmp/jellytui-mpv-${Date.now()}.sock`
-  const playlistPath = `/tmp/jellytui-playlist-${Date.now()}.m3u8`
+  const ipcSocket = `/tmp/tuifin-mpv-${Date.now()}.sock`
+  const playlistPath = `/tmp/tuifin-playlist-${Date.now()}.m3u8`
 
   // Generate m3u8 playlist
   const playlistLines = ["#EXTM3U"]
@@ -61,8 +169,8 @@ export function startMpv(
     playlistPath,
     "--no-terminal",
     "--force-window",
-    "--x11-name=jellytui-mpv",
-    "--wayland-app-id=jellytui-mpv",
+    "--x11-name=tuifin-mpv",
+    "--wayland-app-id=tuifin-mpv",
     `--title=${startEpisode.SeriesName ?? startEpisode.Name}`,
     `--input-ipc-server=${ipcSocket}`,
     `--playlist-start=${startIndex}`,
@@ -95,43 +203,45 @@ export function startMpv(
   const completedEpisodes = new Set<string>()
   let currentPlaylistIndex = startIndex
   let lastPosition = startPosition
+  let lastDuration = 0
 
-  // Poll IPC for progress and playlist position
-  let pollTimer: ReturnType<typeof setInterval> | null = null
+  let ipc: MpvIPC | null = null
 
-  const startPolling = () => {
-    pollTimer = setInterval(async () => {
-      try {
-        const props = await ipcGetProperties(ipcSocket, [
-          "playlist-pos", "time-pos", "duration", "pause"
-        ])
-        
-        const playlistPos = props.has("playlist-pos") ? Number(props.get("playlist-pos")) : null
-        const timePos = props.has("time-pos") ? Number(props.get("time-pos")) : null
-        const duration = props.has("duration") ? Number(props.get("duration")) : null
-        const paused = props.has("pause") ? Boolean(props.get("pause")) : null
+  // Property change handler — called in realtime by mpv
+  const onProperty = (name: string, value: any) => {
+    switch (name) {
+      case "pause":
+        statusBar.updatePauseState(value === true)
+        break
 
-        // Update pause state in status bar
-        if (paused != null) {
-          statusBar.updatePauseState(paused)
+      case "time-pos":
+        if (typeof value === "number") {
+          lastPosition = value
+          statusBar.update(value, lastDuration)
         }
+        break
 
-        // Detect playlist position change (user pressed < or >)
-        if (playlistPos != null && playlistPos !== currentPlaylistIndex) {
-          debug("mpv", `Playlist position changed: ${currentPlaylistIndex} -> ${playlistPos}`)
-          
+      case "duration":
+        if (typeof value === "number") {
+          lastDuration = value
+        }
+        break
+
+      case "playlist-pos":
+        if (typeof value === "number" && value !== currentPlaylistIndex) {
+          debug("mpv", `Playlist position changed: ${currentPlaylistIndex} -> ${value}`)
+
           // Save progress for previous episode
           const prevEpisode = episodes[currentPlaylistIndex]
           if (prevEpisode) {
             const prevTicks = Math.round(lastPosition * 10000000)
             episodeProgress.set(prevEpisode.Id, prevTicks)
-            
+
             // Check if previous episode was completed
             if (prevEpisode.RunTimeTicks && prevTicks / prevEpisode.RunTimeTicks > 0.9) {
               completedEpisodes.add(prevEpisode.Id)
               debug("mpv", `Episode ${currentPlaylistIndex} marked complete`)
-              
-              // Report to server immediately and notify callback
+
               client.markPlayed(prevEpisode.Id).catch((err) => {
                 debug("mpv", `Failed to mark played: ${err}`)
               })
@@ -139,8 +249,9 @@ export function startMpv(
             }
           }
 
-          currentPlaylistIndex = playlistPos
-          lastPosition = 0 // Reset position for new episode
+          currentPlaylistIndex = value
+          lastPosition = 0
+          lastDuration = 0
 
           // Update status bar with new episode title
           const newEpisode = episodes[currentPlaylistIndex]
@@ -151,20 +262,25 @@ export function startMpv(
             statusBar.updateTitle(title)
           }
         }
-
-        // Update current episode progress
-        if (timePos != null) {
-          lastPosition = timePos
-          statusBar.update(timePos, duration ?? 0)
-        }
-      } catch {
-        // Socket not ready yet or mpv closed
-      }
-    }, 1000)
+        break
+    }
   }
 
-  // Give mpv a moment to start before polling
-  setTimeout(startPolling, 1500)
+  // Connect IPC with retries (mpv needs time to create the socket)
+  const connectIPC = async () => {
+    ipc = new MpvIPC(ipcSocket, onProperty)
+    for (let attempt = 0; attempt < 10; attempt++) {
+      await new Promise((r) => setTimeout(r, 300))
+      const ok = await ipc.connect()
+      if (ok) {
+        debug("mpv", `IPC connected on attempt ${attempt + 1}`)
+        return
+      }
+    }
+    debug("mpv", "Failed to connect IPC after 10 attempts")
+  }
+
+  connectIPC()
 
   const stop = () => {
     proc.kill()
@@ -176,17 +292,11 @@ export function startMpv(
     await stderrPromise
     debug("mpv", `Process exited with code ${exitCode}`)
 
-    if (pollTimer) {
-      clearInterval(pollTimer)
-      pollTimer = null
+    // Destroy IPC connection
+    if (ipc) {
+      ipc.destroy()
+      ipc = null
     }
-
-    // Try one last read for current episode
-    try {
-      const props = await ipcGetProperties(ipcSocket, ["time-pos"])
-      const pos = props.has("time-pos") ? Number(props.get("time-pos")) : null
-      if (pos != null) lastPosition = pos
-    } catch {}
 
     // Save progress for last episode
     const lastEpisode = episodes[currentPlaylistIndex]
@@ -199,7 +309,6 @@ export function startMpv(
         completedEpisodes.add(lastEpisode.Id)
         debug("mpv", `Final episode marked complete`)
       } else if (lastTicks > 0) {
-        // Report partial progress to server immediately
         debug("mpv", `Reporting partial progress for last episode: ${lastTicks} ticks`)
         try {
           await client.reportPlaybackStopped(lastEpisode.Id, lastTicks)
@@ -222,63 +331,6 @@ export function startMpv(
 }
 
 /**
- * Query multiple properties from mpv's IPC socket in a single connection.
- */
-async function ipcGetProperties(socketPath: string, properties: string[]): Promise<Map<string, any>> {
-  const { connect } = await import("node:net")
-  return new Promise((resolve) => {
-    const results = new Map<string, any>()
-    let pending = properties.length
-    let requestId = 1
-    const idToProperty = new Map<number, string>()
-
-    const timeout = setTimeout(() => {
-      socket.destroy()
-      resolve(results)
-    }, 800)
-
-    const socket = connect(socketPath, () => {
-      for (const prop of properties) {
-        const id = requestId++
-        idToProperty.set(id, prop)
-        socket.write(JSON.stringify({ command: ["get_property", prop], request_id: id }) + "\n")
-      }
-    })
-
-    let buffer = ""
-    socket.on("data", (chunk) => {
-      buffer += chunk.toString()
-      // mpv sends one JSON object per line
-      const lines = buffer.split("\n")
-      buffer = lines.pop() ?? "" // Keep incomplete line in buffer
-      for (const line of lines) {
-        if (!line.trim()) continue
-        try {
-          const resp = JSON.parse(line)
-          // Skip events (they don't have request_id)
-          if (resp.event) continue
-          const prop = idToProperty.get(resp.request_id)
-          if (prop && resp.error === "success") {
-            results.set(prop, resp.data)
-          }
-          pending--
-          if (pending <= 0) {
-            clearTimeout(timeout)
-            socket.destroy()
-            resolve(results)
-          }
-        } catch {}
-      }
-    })
-
-    socket.on("error", () => {
-      clearTimeout(timeout)
-      resolve(results)
-    })
-  })
-}
-
-/**
  * Report playback results to Jellyfin for all watched episodes.
  */
 export async function reportPlayback(
@@ -294,9 +346,7 @@ export async function reportPlayback(
 
     // Report progress for partially watched episodes
     for (const [itemId, positionTicks] of result.episodeProgress) {
-      // Skip if already marked complete
       if (result.completedEpisodes.has(itemId)) continue
-      
       if (positionTicks > 0) {
         debug("mpv", `Reporting progress for ${itemId}: ${positionTicks} ticks`)
         await client.reportPlaybackStopped(itemId, positionTicks)

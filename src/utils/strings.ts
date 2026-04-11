@@ -3,8 +3,8 @@
 
 export const strings = {
   app: {
-    name: "JellyTUI",
-    title: "🍿 JellyTUI",
+    name: "tuifin",
+    title: "🍿 tuifin",
   },
 
   login: {
@@ -59,6 +59,8 @@ export const strings = {
     noOverview: "No description available.",
     year: (y: number) => `${y}`,
     runtime: (mins: number) => `${mins} min`,
+    episodeCount: (n: number) => `${n} episode${n !== 1 ? "s" : ""}`,
+    watchedOf: (watched: number, total: number) => `${watched}/${total} watched`,
     seasonLabel: (n: number) => `Season ${n}`,
     episodeLabel: (s: number, e: number) => `S${String(s).padStart(2, "0")}E${String(e).padStart(2, "0")}`,
   },
@@ -71,7 +73,7 @@ export const strings = {
   statusBar: {
     notPlaying: "Nothing playing",
     idleHint: "q: quit  Shift+Q: logout  r: refresh",
-    activeHint: "q: stop playback",
+    activeHint: "",
   },
 } as const
 

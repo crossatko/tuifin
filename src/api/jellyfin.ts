@@ -1,4 +1,4 @@
-// JellyTUI — Jellyfin API Client
+// tuifin — Jellyfin API Client
 
 import { debug } from "../utils/debug"
 
@@ -35,8 +35,10 @@ export interface JellyfinItem {
     PlayedPercentage?: number
     Played: boolean
     IsFavorite: boolean
+    UnplayedItemCount?: number
   }
   RunTimeTicks?: number
+  ChildCount?: number
   MediaSources?: MediaSource[]
 }
 
@@ -80,9 +82,9 @@ export class JellyfinClient {
       "Content-Type": "application/json",
     }
     const authParts = [
-      'MediaBrowser Client="JellyTUI"',
+      'MediaBrowser Client="tuifin"',
       'Device="Terminal"',
-      'DeviceId="jellytui-1"',
+      'DeviceId="tuifin-1"',
       'Version="0.1.0"',
     ]
     if (this.config.accessToken) {
@@ -247,7 +249,7 @@ export class JellyfinClient {
 
   async getSeasons(seriesId: string, onUpdate?: (items: JellyfinItem[]) => void): Promise<JellyfinItem[]> {
     const data = await this.cachedRequest<JellyfinItemsResponse>(
-      `/Shows/${seriesId}/Seasons?UserId=${this.config.userId}&Fields=Overview,ImageTags,UserData`,
+      `/Shows/${seriesId}/Seasons?UserId=${this.config.userId}&Fields=Overview,ImageTags,UserData,CommunityRating`,
       onUpdate ? (d) => onUpdate(d.Items) : undefined,
     )
     return data.Items

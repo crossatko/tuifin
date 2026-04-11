@@ -7,18 +7,22 @@ import {
   TextRenderable,
   TextAttributes,
   type RenderContext,
+  type CliRenderer,
 } from "@opentui/core"
 import { theme } from "../utils/theme"
 import { strings } from "../utils/strings"
+import { debug } from "../utils/debug"
 
 export class PlaybackStatusBar {
   private renderer: RenderContext
   private container: BoxRenderable
+  private titleBox: BoxRenderable
   private titleText: TextRenderable
   private progressText: TextRenderable
   private hintText: TextRenderable
   private isPaused = false
   private active = false
+  private currentTitle = ""
 
   constructor(renderer: RenderContext) {
     this.renderer = renderer
@@ -31,10 +35,18 @@ export class PlaybackStatusBar {
       width: "100%",
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
       paddingX: 2,
       height: 1,
       backgroundColor: theme.bg.surface,
+    })
+
+    // Title wrapped in a box that clips overflow and fills remaining space
+    this.titleBox = new BoxRenderable(renderer, {
+      id: "playback-title-box",
+      flexGrow: 1,
+      flexShrink: 1,
+      overflow: "hidden",
+      height: 1,
     })
 
     this.titleText = new TextRenderable(renderer, {
@@ -48,6 +60,7 @@ export class PlaybackStatusBar {
       id: "playback-progress",
       content: "",
       fg: theme.text.muted,
+      flexShrink: 0,
     })
 
     this.hintText = new TextRenderable(renderer, {
@@ -55,31 +68,41 @@ export class PlaybackStatusBar {
       content: strings.statusBar.idleHint,
       fg: theme.text.muted,
       attributes: TextAttributes.DIM,
+      flexShrink: 0,
     })
 
-    this.container.add(this.titleText)
+    this.titleBox.add(this.titleText)
+    this.container.add(this.titleBox)
     this.container.add(this.progressText)
     this.container.add(this.hintText)
+  }
+
+  private renderTitle() {
+    const icon = this.isPaused ? "⏸ " : "▶ "
+    this.titleText.content = `${icon} ${this.currentTitle}`
+    ;(this.renderer as CliRenderer).requestRender()
   }
 
   /** Switch to active playback mode */
   activate(title: string) {
     this.active = true
     this.isPaused = false
+    this.currentTitle = title
     this.container.backgroundColor = theme.accent
-    this.titleText.content = `▶  ${title}`
     this.titleText.fg = theme.bg.base
     this.titleText.attributes = TextAttributes.BOLD
     this.progressText.content = ""
     this.progressText.fg = theme.bg.base
     this.hintText.content = strings.statusBar.activeHint
     this.hintText.fg = theme.bg.base
+    this.renderTitle()
   }
 
   /** Switch back to idle mode */
   deactivate() {
     this.active = false
     this.isPaused = false
+    this.currentTitle = ""
     this.container.backgroundColor = theme.bg.surface
     this.titleText.content = strings.statusBar.notPlaying
     this.titleText.fg = theme.text.muted
@@ -88,6 +111,7 @@ export class PlaybackStatusBar {
     this.progressText.fg = theme.text.muted
     this.hintText.content = strings.statusBar.idleHint
     this.hintText.fg = theme.text.muted
+    ;(this.renderer as CliRenderer).requestRender()
   }
 
   update(positionSecs: number, durationSecs: number) {
@@ -101,21 +125,21 @@ export class PlaybackStatusBar {
     } else {
       this.progressText.content = formatTime(positionSecs)
     }
+    ;(this.renderer as CliRenderer).requestRender()
   }
 
   updateTitle(title: string) {
     if (!this.active) return
-    const icon = this.isPaused ? "⏸" : "▶"
-    this.titleText.content = `${icon}  ${title}`
+    this.currentTitle = title
+    this.renderTitle()
   }
 
   updatePauseState(paused: boolean) {
+    debug("statusbar", `updatePauseState: paused=${paused}, active=${this.active}, wasPaused=${this.isPaused}`)
     if (!this.active) return
     if (this.isPaused !== paused) {
       this.isPaused = paused
-      const icon = paused ? "⏸" : "▶"
-      const currentTitle = this.titleText.content.replace(/^[▶⏸]\s+/, "")
-      this.titleText.content = `${icon}  ${currentTitle}`
+      this.renderTitle()
     }
   }
 

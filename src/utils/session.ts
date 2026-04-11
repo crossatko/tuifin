@@ -12,13 +12,13 @@ export interface SessionData {
   username: string
 }
 
-const CONFIG_DIR = join(homedir(), ".config", "jellytui")
+const CONFIG_DIR = join(homedir(), ".config", "tuifin")
 const SESSION_FILE = join(CONFIG_DIR, "session.enc")
 
 // Simple XOR encryption with a key derived from machine-specific info
 // Not military-grade, but keeps credentials from being plaintext on disk
 function deriveKey(): Buffer {
-  const material = `jellytui-${homedir()}-${process.env.USER ?? "user"}`
+  const material = `tuifin-${homedir()}-${process.env.USER ?? "user"}`
   const hash = new Bun.CryptoHasher("sha256")
   hash.update(material)
   return Buffer.from(hash.digest())

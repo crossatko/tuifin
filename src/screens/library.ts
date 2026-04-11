@@ -95,7 +95,7 @@ export class LibraryScreen {
     this.keyHandler = (key: KeyEvent) => {
       if (!this.mediaList && (key.name === "escape" || key.name === "backspace")) {
         this.onAction({ type: "back" })
-      } else if (key.name === "r") {
+      } else if (key.name === "r" && !this.mediaList?.isSearching) {
         this.refresh()
       }
     }
