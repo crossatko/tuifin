@@ -128,14 +128,6 @@ export class LoginScreen {
       fg: theme.status.error,
     })
 
-    // Hint
-    const hint = new TextRenderable(renderer, {
-      id: "login-hint",
-      content: strings.login.hint,
-      attributes: TextAttributes.DIM,
-      fg: theme.text.muted,
-    })
-
     // Assemble
     formBox.add(serverRow)
     formBox.add(userRow)
@@ -145,7 +137,6 @@ export class LoginScreen {
     this.container.add(title)
     this.container.add(subtitle)
     this.container.add(formBox)
-    this.container.add(hint)
 
     this.inputs = [this.serverInput, this.usernameInput, this.passwordInput]
     this.focusCurrentInput()

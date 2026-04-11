@@ -89,12 +89,6 @@ export class LibraryScreen {
     this.container.add(loadingBox)
 
     // Hint bar
-    this.container.add(new TextRenderable(renderer, {
-      id: "library-hint",
-      content: strings.library.hint,
-      attributes: TextAttributes.DIM,
-      fg: theme.text.muted,
-    }))
 
     // Back key handler (before MediaList takes over)
     this.keyHandler = (key: KeyEvent) => {
@@ -168,7 +162,7 @@ export class LibraryScreen {
       })
 
       mediaListBox.add(this.mediaList.getRenderable())
-      this.container.add(mediaListBox, 1) // insert after header, before hint
+      this.container.add(mediaListBox, 1) // insert after header
     } catch (err) {
       if (this.destroyed || generation !== this.loadGeneration || this.container.isDestroyed) {
         debug("library", "Ignoring stale loadItems error", { error: String(err) })
