@@ -68,6 +68,11 @@ export const strings = {
     rating: (r: number) => `★ ${r.toFixed(1)}`,
     played: "✓ Watched",
   },
+  statusBar: {
+    notPlaying: "Nothing playing",
+    idleHint: "q: quit  Shift+Q: logout  r: refresh",
+    activeHint: "q: stop playback",
+  },
 } as const
 
 export type Strings = typeof strings

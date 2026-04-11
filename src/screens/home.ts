@@ -83,15 +83,6 @@ export class HomeScreen {
     this.contentBox = content
     this.container.add(content)
 
-    // Hint bar
-    const hint = new TextRenderable(renderer, {
-      id: "home-hint",
-      content: strings.home.hint,
-      attributes: TextAttributes.DIM,
-      fg: theme.text.muted,
-    })
-    this.container.add(hint)
-
     // Section switching: j/k or up/down to switch sections, h/l handled by CardRow
     this.keyHandler = (key: KeyEvent) => {
       if (key.name === "tab" || key.name === "down" || key.name === "j") {

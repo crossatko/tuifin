@@ -29,6 +29,10 @@ type Screen = LoginScreen | HomeScreen | LibraryScreen | DetailScreen
 let currentScreen: Screen | null = null
 let jellyfinClient: JellyfinClient | null = null
 
+// Persistent status bar at bottom of screen
+const statusBar = new PlaybackStatusBar(renderer)
+renderer.root.add(statusBar.getRenderable())
+
 // Navigation stack for back navigation
 const navStack: Array<() => void> = []
 
@@ -182,9 +186,7 @@ async function handlePlay(client: JellyfinClient, item: JellyfinItem) {
   const title = item.SeriesName
     ? `${item.SeriesName} — ${item.Name}`
     : item.Name
-  const statusBar = new PlaybackStatusBar(renderer, title)
-  const statusBarRenderable = statusBar.getRenderable()
-  renderer.root.add(statusBarRenderable)
+  statusBar.activate(title)
 
   const session = startMpv(client, episodes, startIndex, statusBar, (completedEpisode) => {
     // Live update: episode completed during playback
@@ -209,8 +211,7 @@ async function handlePlay(client: JellyfinClient, item: JellyfinItem) {
     debug("main", "Playback error", { error: String(err) })
   } finally {
     activeSession = null
-    renderer.root.remove(statusBarRenderable.id)
-    statusBar.destroy()
+    statusBar.deactivate()
   }
 }
 
