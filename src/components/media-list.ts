@@ -303,6 +303,12 @@ export class MediaList {
       this.searchInput = null
     }
     this.select?.focus()
+    // Update preview for the selected item after search closes
+    if (this.select && this.showPreview) {
+      const index = this.select.getSelectedIndex()
+      const item = this.items[index]
+      if (item) this.schedulePreviewUpdate(item)
+    }
   }
 
   private fuzzyScrollTo(query: string) {
@@ -319,8 +325,8 @@ export class MediaList {
 
     if (bestIndex >= 0 && bestScore > 0) {
       this.select.setSelectedIndex(bestIndex)
-      const item = this.items[bestIndex]
-      if (item) this.schedulePreviewUpdate(item)
+      // Don't update preview during search — too many rapid image loads
+      // cause Kitty graphics race conditions. Preview updates on search close.
     }
   }
 
@@ -347,7 +353,7 @@ export class MediaList {
     this.previewDebounceTimer = setTimeout(() => {
       this.previewDebounceTimer = null
       this.updatePreview(item)
-    }, 30)
+    }, 150)
   }
 
   private async updatePreview(item: JellyfinItem) {
