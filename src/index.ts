@@ -212,6 +212,11 @@ async function handlePlay(client: JellyfinClient, item: JellyfinItem) {
   } finally {
     activeSession = null
     statusBar.deactivate()
+    // Refresh home screen after playback ends (updated progress/watched state)
+    client.clearCache()
+    if (currentScreen instanceof HomeScreen) {
+      currentScreen.refresh()
+    }
   }
 }
 
