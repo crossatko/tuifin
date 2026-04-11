@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "start": "bun run src/index.ts",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --compile --outfile jellytui",
+    "install-bin": "bun run build && cp jellytui ~/.bun/bin/jellytui"
   },
   "devDependencies": {
     "@types/bun": "latest"
