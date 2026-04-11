@@ -59,6 +59,9 @@ export class MediaList {
   private showPreview: boolean
   /** Throttle scroll events - some terminals fire multiple events per tick */
   private lastScrollTime = 0
+  /** Track last key + time for gg detection */
+  private lastKeyName = ""
+  private lastKeyTime = 0
 
   constructor(renderer: RenderContext, options: MediaListOptions) {
     this.renderer = renderer
@@ -101,6 +104,27 @@ export class MediaList {
         this.onBack()
       } else if (key.name === "/") {
         this.openSearch()
+      } else if (key.name === "g" && key.shift) {
+        // Shift+G → go to bottom
+        if (this.select && this.items.length > 0) {
+          this.select.setSelectedIndex(this.items.length - 1)
+        }
+      } else if (key.name === "g" && !key.shift) {
+        // gg → go to top (double-tap g within 500ms)
+        const now = Date.now()
+        if (this.lastKeyName === "g" && now - this.lastKeyTime < 500) {
+          if (this.select) {
+            this.select.setSelectedIndex(0)
+          }
+          this.lastKeyName = ""
+          this.lastKeyTime = 0
+        } else {
+          this.lastKeyName = "g"
+          this.lastKeyTime = now
+        }
+      } else {
+        this.lastKeyName = ""
+        this.lastKeyTime = 0
       }
     }
     renderer.keyInput.on("keypress", this.keyHandler)
