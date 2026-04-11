@@ -51,6 +51,7 @@ export class LoginScreen {
       flexDirection: "column",
       justifyContent: "center",
       alignItems: "center",
+      paddingBottom: 1,
     })
 
     // Title

@@ -45,6 +45,7 @@ export class DetailScreen {
       width: "100%",
       height: "100%",
       flexDirection: "column",
+      paddingBottom: 1,
     })
 
     // For playable items, play immediately

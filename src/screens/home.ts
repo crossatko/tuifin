@@ -51,6 +51,7 @@ export class HomeScreen {
       width: "100%",
       height: "100%",
       flexDirection: "column",
+      paddingBottom: 1,
     })
 
     // Header
