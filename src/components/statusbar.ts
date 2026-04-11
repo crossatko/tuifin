@@ -22,6 +22,10 @@ export class PlaybackStatusBar {
 
     this.container = new BoxRenderable(renderer, {
       id: "playback-statusbar",
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      width: "100%",
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
