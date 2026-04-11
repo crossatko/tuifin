@@ -168,7 +168,6 @@ export class MediaList {
     })
 
     this.select.on(SelectRenderableEvents.SELECTION_CHANGED, (index) => {
-      if (this.searching) return // Don't update preview during search — causes Kitty image race
       const item = this.items[index]
       if (item && this.showPreview) this.schedulePreviewUpdate(item)
     })
@@ -375,10 +374,12 @@ export class MediaList {
   private schedulePreviewUpdate(item: JellyfinItem) {
     if (this.destroyed) return
     if (this.previewDebounceTimer) clearTimeout(this.previewDebounceTimer)
+    // Use longer debounce during search to prevent Kitty image race conditions
+    const delay = this.searching ? 500 : 150
     this.previewDebounceTimer = setTimeout(() => {
       this.previewDebounceTimer = null
       this.updatePreview(item)
-    }, 150)
+    }, delay)
   }
 
   private async updatePreview(item: JellyfinItem) {
