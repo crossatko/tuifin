@@ -62,8 +62,8 @@ Drill-down hierarchy for TV: **Series → Season → Episode**
 
 ### 5. Playback
 
-- mpv takes over the terminal (TUI suspends)
-- After mpv exits, TUI resumes
+- mpv spawns new window
+- tui shows active statusbar with "Playing: [Title]" and progress
 - Watched state / progress synced back to Jellyfin server
 
 ### Navigation Keys
@@ -130,12 +130,15 @@ Use Jellyfin's REST API. Key endpoints:
 1. Mark it done in `PLANS.md` with `[x]`
 2. Update `TODOS.md` with next steps
 3. Commit code with clear message referencing the feature/task
-4. if feature is complete, squash commits into one with a clear message referencing the feature/task and merge to dev branch and checkout to it
+4. always cleanup todos from completed tasks if the task was not the subject to recent followups, if there are followups, update the todos with them and mark the completed task as done, but don't remove it until all followups are done. if there are no followups, remove the completed task from todos.
+5. if feature is complete, squash commits into one with a clear message referencing the feature/task and merge to dev branch and checkout to it
 
 ### After every code change
 
 **Always compile and install the binary** so the user can test immediately:
+
 ```bash
 cd /home/kreejzak/code/crossatko/jellytui && bun build src/index.ts --compile --outfile jellytui && rm -f ~/.bun/bin/jellytui && cp jellytui ~/.bun/bin/jellytui
 ```
+
 This ensures `jellytui` command always runs the latest version.
