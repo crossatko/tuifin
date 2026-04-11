@@ -168,6 +168,7 @@ export class MediaList {
     })
 
     this.select.on(SelectRenderableEvents.SELECTION_CHANGED, (index) => {
+      if (this.searching) return // Don't update preview during search — causes Kitty image race
       const item = this.items[index]
       if (item && this.showPreview) this.schedulePreviewUpdate(item)
     })
