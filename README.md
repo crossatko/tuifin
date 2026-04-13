@@ -101,6 +101,10 @@ bun run build
 - **Image protocol:** Kitty graphics protocol + half-block fallback
 - **Theme:** Catppuccin Mocha
 
+## Disclaimer 🤖
+
+This entire app was vibe-coded into existence by a clanker while a human watched and occasionally pressed Enter. No developers were harmed in the making of this software — mostly because none were involved.
+
 ## License
 
 MIT
