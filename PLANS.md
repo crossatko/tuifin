@@ -14,6 +14,7 @@
 - [x] "New Episodes" section (horizontal row of items)
 - [x] "Library Collection" section (list of libraries)
 - [x] Poster image grid (with text fallback for unsupported terminals)
+- [x] "Recently Added" section (latest media across libraries)
 
 ## Phase 3: Browsing & Details
 
