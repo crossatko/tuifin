@@ -232,6 +232,14 @@ export class JellyfinClient {
     return data.Items
   }
 
+  async getLatestMedia(limit = 20, onUpdate?: (items: JellyfinItem[]) => void): Promise<JellyfinItem[]> {
+    const data = await this.cachedRequest<JellyfinItem[]>(
+      `/Users/${this.config.userId}/Items/Latest?Limit=${limit}&Fields=Overview,ImageTags,UserData,MediaSources,CommunityRating,OfficialRating,ProductionYear,RunTimeTicks`,
+      onUpdate,
+    )
+    return data
+  }
+
   async getNextUp(limit = 10, onUpdate?: (items: JellyfinItem[]) => void): Promise<JellyfinItem[]> {
     const data = await this.cachedRequest<JellyfinItemsResponse>(
       `/Shows/NextUp?UserId=${this.config.userId}&Limit=${limit}&Fields=Overview,ImageTags,UserData,MediaSources,RunTimeTicks`,

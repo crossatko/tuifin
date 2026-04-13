@@ -332,7 +332,11 @@ export class CardRow {
   private updateKittyOverlays() {
     const visible = this.getVisibleCount()
     let termWidth = 80
-    try { termWidth = (this.renderer as CliRenderer).width } catch {}
+    let termHeight = 24
+    try {
+      termWidth = (this.renderer as CliRenderer).width
+      termHeight = (this.renderer as CliRenderer).height
+    } catch {}
 
     for (let i = 0; i < this.cards.length; i++) {
       const handle = this.imageHandles.get(i)
@@ -345,11 +349,19 @@ export class CardRow {
         continue
       }
 
-      // Extra safety: check the renderable's x position fits within terminal
       const cardBox = this.cardBoxes[i]
       if (cardBox) {
+        // Check horizontal bounds
         const x = cardBox.x
         if (x < 0 || x + this.cardWidth > termWidth) {
+          handle.hideKitty()
+          continue
+        }
+
+        // Check vertical bounds — hide if card is scrolled above or below viewport
+        const y = cardBox.y
+        const cardTotalHeight = this.imgHeight + this.textRows + 2 // +2 for border
+        if (y < 0 || y + cardTotalHeight > termHeight) {
           handle.hideKitty()
           continue
         }
@@ -431,6 +443,11 @@ export class CardRow {
 
   getRenderable(): BoxRenderable {
     return this.container
+  }
+
+  /** Re-evaluate kitty overlay visibility (call after parent scroll) */
+  refreshKittyVisibility() {
+    this.scheduleKittyUpdate()
   }
 
   destroy() {

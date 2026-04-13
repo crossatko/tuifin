@@ -36,7 +36,8 @@ export const strings = {
     loadError: (msg: string) => `✗ Failed to load: ${msg}`,
     sections: {
       continueWatching: "▶ Continue Watching",
-      nextUp: "🆕 Next Up",
+      nextUp: "📺 Next Up",
+      recentlyAdded: "🆕 Recently Added",
       libraries: "📚 Libraries",
     },
   },

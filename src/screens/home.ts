@@ -2,6 +2,7 @@
 
 import {
   BoxRenderable,
+  ScrollBoxRenderable,
   TextRenderable,
   TextAttributes,
   type RenderContext,
@@ -23,7 +24,7 @@ export class HomeScreen {
   private renderer: RenderContext
   private client: JellyfinClient
   private container: BoxRenderable
-  private contentBox: BoxRenderable | null = null
+  private contentBox: ScrollBoxRenderable | null = null
   private onAction: (action: HomeAction) => void
   private keyHandler: (key: KeyEvent) => void
 
@@ -72,14 +73,12 @@ export class HomeScreen {
     header.add(titleText)
     this.container.add(header)
 
-    // Content area
-    const content = new BoxRenderable(renderer, {
+    // Content area (scrollable)
+    const content = new ScrollBoxRenderable(renderer, {
       id: "home-content",
-      flexDirection: "column",
       flexGrow: 1,
       paddingX: 2,
       gap: 1,
-      overflow: "hidden",
     })
     this.contentBox = content
     this.container.add(content)
@@ -109,7 +108,7 @@ export class HomeScreen {
     this.loadData(content)
   }
 
-  private async loadData(content: BoxRenderable) {
+  private async loadData(content: ScrollBoxRenderable) {
     debug("home", "Loading home data...")
     const loadingText = new TextRenderable(this.renderer, {
       id: "home-loading",
@@ -119,13 +118,17 @@ export class HomeScreen {
     content.add(loadingText)
 
     try {
-      const [resumeItems, nextUpItems, libraries] = await Promise.all([
+      const [resumeItems, nextUpItems, latestItems, libraries] = await Promise.all([
         this.client.getResumeItems(10).catch((err) => {
           debug("home", "Failed to fetch resume items", { error: String(err) })
           return []
         }),
         this.client.getNextUp(10).catch((err) => {
           debug("home", "Failed to fetch next up", { error: String(err) })
+          return []
+        }),
+        this.client.getLatestMedia(20).catch((err) => {
+          debug("home", "Failed to fetch latest media", { error: String(err) })
           return []
         }),
         this.client.getLibraries().catch((err) => {
@@ -137,6 +140,7 @@ export class HomeScreen {
       debug("home", "Data loaded", {
         resumeItems: resumeItems.length,
         nextUpItems: nextUpItems.length,
+        latestItems: latestItems.length,
         libraries: libraries.length,
       })
 
@@ -158,6 +162,15 @@ export class HomeScreen {
           content, "nextup",
           strings.home.sections.nextUp,
           nextUpItems, "open-item",
+        )
+      }
+
+      // Recently Added
+      if (latestItems.length > 0) {
+        this.addCardSection(
+          content, "recently-added",
+          strings.home.sections.recentlyAdded,
+          latestItems, "open-item",
         )
       }
 
@@ -207,10 +220,12 @@ export class HomeScreen {
     actionType: "open-item" | "open-library",
     textRows?: number,
   ) {
+    const isFirst = this.sections.length === 0
     const section = new BoxRenderable(this.renderer, {
       id: `section-${id}`,
       flexDirection: "column",
       gap: 0,
+      marginTop: isFirst ? 0 : 1,
     })
 
     // Section title
@@ -333,7 +348,27 @@ export class HomeScreen {
       newRow.focus()
     }
 
+    // Scroll the section into view
+    if (this.contentBox) {
+      this.contentBox.scrollChildIntoView(`section-${this.sections[index]?.name}`)
+    }
+
+    // Update kitty overlay visibility for all sections after scroll
+    this.scheduleKittyRefresh()
+
     debug("home", `Focused section ${index}: ${this.sections[index]?.name}, visualCol=${visualCol}`)
+  }
+
+  private kittyRefreshTimer: ReturnType<typeof setTimeout> | null = null
+
+  private scheduleKittyRefresh() {
+    if (this.kittyRefreshTimer) clearTimeout(this.kittyRefreshTimer)
+    this.kittyRefreshTimer = setTimeout(() => {
+      this.kittyRefreshTimer = null
+      for (const section of this.sections) {
+        section.cardRow.refreshKittyVisibility()
+      }
+    }, 32) // wait for layout to settle after scroll
   }
 
   getRenderable(): BoxRenderable {
@@ -355,6 +390,7 @@ export class HomeScreen {
     // Remove all children from content box
     try { this.contentBox.remove("section-continue") } catch {}
     try { this.contentBox.remove("section-nextup") } catch {}
+    try { this.contentBox.remove("section-recently-added") } catch {}
     try { this.contentBox.remove("section-libraries") } catch {}
 
     // Clear cache so we get fresh data
@@ -366,6 +402,7 @@ export class HomeScreen {
 
   destroy() {
     this.renderer.keyInput.off("keypress", this.keyHandler)
+    if (this.kittyRefreshTimer) clearTimeout(this.kittyRefreshTimer)
     for (const section of this.sections) {
       section.cardRow.destroy()
     }
