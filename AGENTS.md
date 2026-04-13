@@ -138,7 +138,7 @@ Use Jellyfin's REST API. Key endpoints:
 **Always compile and install the binary** so the user can test immediately:
 
 ```bash
-cd /home/kreejzak/code/crossatko/tuifin && bun build src/index.ts --compile --outfile tuifin && rm -f ~/.bun/bin/tuifin && cp tuifin ~/.bun/bin/tuifin
+bun run build && cp tuifin ~/.bun/bin/tuifin
 ```
 
 This ensures `tuifin` command always runs the latest version.
