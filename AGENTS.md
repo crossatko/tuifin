@@ -63,6 +63,7 @@ Drill-down hierarchy for TV: **Series → Season → Episode**
 ### 5. Playback
 
 - mpv spawns new window
+- Window identity (for compositor rules): the mpv window has app id / X11 class `tuifin-mpv` (`--wayland-app-id`, `--x11-name`, set in `src/utils/player.ts`), not `mpv`, and its title is the series/media name. An IPC socket is passed with `--input-ipc-server`. Keep these stable: window rules in other setups match on them.
 - tui shows active statusbar with "Playing: [Title]" and progress
 - Watched state / progress synced back to Jellyfin server
 
